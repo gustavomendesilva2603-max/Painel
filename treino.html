@@ -46,6 +46,18 @@
 
   .btn-novo{width:100%;padding:15px;font-size:1rem;font-weight:800;color:var(--escura);background:var(--destaque);border:none;border-radius:12px;cursor:pointer;margin:8px 0 26px;letter-spacing:.02em}
   .btn-novo:hover{filter:brightness(1.05)}
+  .btn-gerar{width:100%;padding:15px;font-size:1rem;font-weight:800;color:#fff;background:var(--primaria);border:none;border-radius:12px;cursor:pointer;margin:8px 0 10px;letter-spacing:.02em}
+  .btn-gerar:hover{filter:brightness(1.1)}
+  .btn-gerar:disabled{opacity:.6;cursor:wait}
+
+  /* faixa de água */
+  .agua-box{background:#E8F4FB;border:1px solid #B5DDF0;border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:.9rem;color:#1A4A63;display:flex;align-items:center;gap:10px}
+  .agua-box b{font-weight:800}
+
+  /* item marcado pra revisão de saúde */
+  .ex-linha.revisar{border-color:var(--err);border-width:2px}
+  .flag-saude{background:#FBE7E3;color:var(--err);border-radius:8px;padding:8px 10px;font-size:.8rem;font-weight:600;margin-bottom:8px;display:flex;gap:7px;align-items:flex-start}
+  .flag-saude::before{content:"⚠️";flex-shrink:0}
 
   /* editor */
   #editor{display:none}
@@ -117,7 +129,8 @@
   <div id="listaView">
     <p class="sec-titulo">Treinos deste aluno</p>
     <div id="listaTreinos"></div>
-    <button class="btn-novo" id="btnNovo">＋ Criar novo treino mensal</button>
+    <button class="btn-gerar" id="btnGerar">🤖 Gerar rascunho automático</button>
+    <button class="btn-novo" id="btnNovo">＋ Criar treino do zero</button>
   </div>
 
   <!-- EDITOR -->
@@ -136,6 +149,16 @@
       <div class="campo">
         <label>Objetivo</label>
         <input type="text" id="edObjetivo" placeholder="Ex: Hipertrofia">
+      </div>
+      <div class="campo">
+        <label>Fase do ciclo</label>
+        <select id="edFase" onchange="mudarFase()">
+          <option value="">— selecionar —</option>
+          <option value="Hipertrofia">Hipertrofia (8-12)</option>
+          <option value="Força">Força (3-6)</option>
+          <option value="Resistência">Resistência (15-20)</option>
+          <option value="Deload">Deload (leve)</option>
+        </select>
       </div>
     </div>
 
@@ -301,7 +324,8 @@ function renderDia() {
   ).join('');
 
   const linhas = g.itens.map((it, idx) => `
-    <div class="ex-linha" data-idx="${idx}">
+    <div class="ex-linha ${it.revisar?'revisar':''}" data-idx="${idx}">
+      ${it.revisar ? `<div class="flag-saude">${esc(it.motivo||'Revisar por questão de saúde do aluno.')}</div>` : ''}
       <div class="ex-topo">
         <select onchange="trocarEx(${idx}, this.value)">
           <option value="">— escolher exercício —</option>
@@ -446,6 +470,205 @@ document.getElementById('btnSalvar').addEventListener('click', () => persistir(f
 document.getElementById('btnValidar').addEventListener('click', () => {
   if (confirm('Validar o treino? Isso marca a data e começa a contar os 30 dias.')) persistir(true);
 });
+
+
+/* =========================================================
+   GERADOR AUTOMÁTICO DE RASCUNHO
+   Filosofia: sugere, não decide. Conservador na saúde.
+   Nunca "conserta" lesão — marca pra revisão do treinador.
+   ========================================================= */
+
+// classificação dos exercícios (região e se exige academia)
+const GRUPOS_SUP = ['Peitoral','Costas','Ombro','Bíceps','Tríceps','Antebraço'];
+const GRUPOS_INF = ['Quadríceps','Posterior de Coxa','Glúteos'];
+const PALAVRAS_MAQUINA = ['máquina','maquina','polia','cross','leg press','hack','smith','peck','articulada','pulldown','cadeira','voador','extensora','flexora','adutora','abdutora','graviton'];
+
+function regiaoDoGrupo(g){ if(GRUPOS_SUP.includes(g)) return 'superior'; if(GRUPOS_INF.includes(g)) return 'inferior'; return 'core'; }
+function exigeAcademia(nome){ const n=nome.toLowerCase(); return PALAVRAS_MAQUINA.some(m=>n.includes(m)); }
+
+// mapa de risco: grupo muscular -> palavras de lesão que o contraindicam
+const RISCO = {
+  'Peitoral':   ['ombro','peito','peitoral','clavícula'],
+  'Ombro':      ['ombro','manguito','clavícula','cervical','pescoço'],
+  'Costas':     ['lombar','coluna','hérnia','cervical','disco'],
+  'Bíceps':     ['cotovelo','bíceps','biceps','punho'],
+  'Tríceps':    ['cotovelo','tríceps','triceps','punho'],
+  'Antebraço':  ['punho','antebraço','cotovelo'],
+  'Quadríceps': ['joelho','menisco','patela','quadril'],
+  'Posterior de Coxa':['joelho','posterior','isquio','quadril'],
+  'Glúteos':    ['quadril','glúteo','lombar'],
+  'Abdômen':    ['lombar','hérnia','abdominal','coluna']
+};
+
+// coleta os sinais de saúde da ficha (texto livre — por isso conservador)
+function sinaisDeSaude(f){
+  const campos = [f.lesao_ou_dor, f.dor_ao_movimento, f.doenca_diagnosticada, f.cirurgia].filter(Boolean);
+  const texto = campos.join(' ').toLowerCase();
+  const semRestricao = campos.every(c => /^n[ãa]o/i.test(String(c).trim()) || String(c).trim()==='');
+  const semLiberacao = f.liberacao_medica && /^n[ãa]o$/i.test(String(f.liberacao_medica).trim());
+  return { texto, semRestricao, semLiberacao };
+}
+
+function exercicioTemRisco(grupo, sinais){
+  if (sinais.semRestricao) return null;
+  const palavras = RISCO[grupo] || [];
+  const achou = palavras.find(p => sinais.texto.includes(p));
+  return achou ? `Aluno citou algo em "${achou}" — confira se este exercício é seguro.` : null;
+}
+
+// água: peso × 35ml (fórmula padrão de manutenção)
+function aguaLitros(peso){
+  if (!peso || peso <= 0) return null;
+  return Math.round(peso * 35 / 100) / 10; // ex: 82.5kg -> 2.9L
+}
+
+// nível de experiência a partir do texto da anamnese
+function nivelAluno(f){
+  const t = `${f.ja_treinou} ${f.tempo_treino_ou_parado}`.toLowerCase();
+  if (/nunca/.test(t) || /^n[ãa]o$/i.test(String(f.ja_treinou).trim())) return 'iniciante';
+  if (/(2|3|4|5|6|7|8|9|10).*ano|anos/.test(t)) return 'avancado';
+  return 'intermediario';
+}
+
+// faixa de reps por fase
+const REPS_FASE = { 'Hipertrofia':'8-12','Força':'3-6','Resistência':'15-20','Deload':'12-15' };
+
+function sortear(arr, n){
+  const c = [...arr];
+  const out = [];
+  while (c.length && out.length < n) out.push(c.splice(Math.floor(Math.random()*c.length),1)[0]);
+  return out;
+}
+
+document.getElementById('btnGerar').addEventListener('click', async () => {
+  const btn = document.getElementById('btnGerar');
+  btn.disabled = true; btn.textContent = 'Gerando...';
+
+  try {
+    const f = ficha;
+    const sinais = sinaisDeSaude(f);
+    const nivel = nivelAluno(f);
+    const sexo = (f.sexo || '').toLowerCase(); // pode não existir; tratamos abaixo
+    // heurística de sexo: campo não existe na anamnese atual -> infere pelo nome? não.
+    // usamos a ênfase pedida: default equilibra; se souber, ajusta.
+    const enfase = inferirEnfase(f);
+
+    // quantos dias o aluno marcou
+    const diasAluno = (f.dias_treino || []).length || 3;
+    const nDias = Math.min(Math.max(diasAluno, 2), 6); // entre 2 e 6
+
+    // local -> filtra exercícios possíveis
+    const local = (f.local_treino || '').toLowerCase();
+    const soEmCasa = /casa|condom/.test(local);
+
+    // pool de exercícios do banco já carregado
+    let pool = exercicios.filter(e => e.ativo !== false);
+    if (soEmCasa) pool = pool.filter(e => !exigeAcademia(e.nome));
+
+    const porGrupoLocal = {};
+    pool.forEach(e => { (porGrupoLocal[e.grupo_muscular] ||= []).push(e); });
+
+    // volume por nível
+    const exPorDia = nivel === 'iniciante' ? 4 : nivel === 'avancado' ? 7 : 5;
+
+    // divisão por número de dias (superior/inferior/full)
+    const divisao = montarDivisao(nDias, enfase);
+
+    // monta a grade
+    grade = {};
+    DIAS.forEach(d => grade[d] = { nome:'', itens:[] });
+
+    divisao.forEach((foco, i) => {
+      const dia = DIAS[i];
+      grade[dia].nome = foco.nome;
+      const grupos = foco.grupos;
+      const itens = [];
+      // distribui exPorDia entre os grupos do dia
+      let restante = exPorDia;
+      grupos.forEach((g, gi) => {
+        const qtd = gi === grupos.length-1 ? restante : Math.max(1, Math.round(exPorDia / grupos.length));
+        restante -= qtd;
+        const escolhidos = sortear(porGrupoLocal[g] || [], qtd);
+        escolhidos.forEach(ex => {
+          const risco = exercicioTemRisco(g, sinais);
+          itens.push({
+            exercicio_id: ex.id, nome: ex.nome, video: ex.video_url,
+            series: nivel==='iniciante' ? 3 : 4,
+            reps: REPS_FASE['Hipertrofia'],
+            carga: '', descanso: nivel==='avancado' ? 90 : 60,
+            revisar: !!risco, motivo: risco || ''
+          });
+        });
+      });
+      grade[dia].itens = itens;
+    });
+
+    treinoAtual = null;
+    document.getElementById('edTitulo').value = 'Treino gerado — revisar';
+    document.getElementById('edPeso').value = f.peso_kg || '';
+    document.getElementById('edObjetivo').value = f.objetivo_principal || '';
+
+    abrirEditor();
+
+    // avisos no topo do editor
+    const litros = aguaLitros(f.peso_kg);
+    let msgs = [];
+    if (litros) msgs.push(`💧 Água recomendada: <b>${litros} L/dia</b> (${f.peso_kg}kg × 35ml).`);
+    if (sinais.semLiberacao) msgs.push('⚠️ Aluno marcou que <b>não tem liberação médica</b> — revise antes de validar.');
+    if (!sinais.semRestricao) msgs.push('⚠️ Há relatos de saúde na ficha. Exercícios em vermelho precisam da sua revisão.');
+    aviso(msgs.join('<br>') || 'Rascunho gerado. Revise e ajuste as cargas.', msgs.some(m=>m.includes('⚠️'))?'erro':'ok');
+    document.getElementById('aviso').innerHTML = document.getElementById('aviso').innerHTML; // mantém html
+
+  } catch (err) {
+    console.error(err);
+    alert('Não consegui gerar. Tente montar do zero.');
+  } finally {
+    btn.disabled = false; btn.textContent = '🤖 Gerar rascunho automático';
+  }
+});
+
+// ênfase: homem = superior, mulher = inferior (como pedido).
+// agora usa o campo `genero` real da anamnese.
+function inferirEnfase(f){
+  const g = (f.genero || '').toLowerCase();
+  if (g === 'feminino') return 'inferior';
+  if (g === 'masculino') return 'superior';
+  return 'equilibrado';   // 'Outro' ou não informado
+}
+
+// monta a divisão de treino conforme dias e ênfase
+function montarDivisao(nDias, enfase){
+  const SUP1 = {nome:'Peito e Tríceps', grupos:['Peitoral','Tríceps']};
+  const SUP2 = {nome:'Costas e Bíceps', grupos:['Costas','Bíceps']};
+  const SUP3 = {nome:'Ombro e Abdômen', grupos:['Ombro','Abdômen']};
+  const INF1 = {nome:'Quadríceps e Glúteos', grupos:['Quadríceps','Glúteos']};
+  const INF2 = {nome:'Posterior e Glúteos', grupos:['Posterior de Coxa','Glúteos']};
+  const FULLA = {nome:'Superiores', grupos:['Peitoral','Costas','Ombro']};
+  const FULLB = {nome:'Inferiores e Core', grupos:['Quadríceps','Posterior de Coxa','Abdômen']};
+
+  const bases = {
+    2: [FULLA, FULLB],
+    3: [SUP1, SUP2, INF1],
+    4: [SUP1, SUP2, INF1, SUP3],
+    5: [SUP1, SUP2, INF1, SUP3, INF2],
+    6: [SUP1, SUP2, INF1, SUP3, INF2, {nome:'Full e Core', grupos:['Peitoral','Costas','Abdômen']}]
+  };
+  let div = bases[nDias] || bases[3];
+
+  // ênfase por gênero: troca um dos dias pelo foco pedido, quando há espaço
+  if (nDias >= 4) {
+    if (enfase === 'superior') {
+      // reforça superiores: garante Ombro/Braço extra no lugar de um inferior repetido
+      div = div.map((d,i) => (i === div.length-1 && !d.grupos.some(g=>GRUPOS_SUP.includes(g)))
+        ? {nome:'Braços e Ombro', grupos:['Bíceps','Tríceps','Ombro']} : d);
+    } else if (enfase === 'inferior') {
+      // reforça inferiores: último dia vira foco de perna/glúteo
+      div = div.map((d,i) => (i === div.length-1)
+        ? {nome:'Glúteos e Posterior', grupos:['Glúteos','Posterior de Coxa']} : d);
+    }
+  }
+  return div;
+}
 </script>
 </body>
 </html>
