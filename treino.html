@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Montar Treino</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
   :root{
     --primaria:#39556A; --escura:#2C4356; --destaque:#BEDA49;
@@ -214,6 +216,13 @@ const boot = document.getElementById('boot');
   exercicios.forEach(e => { (porGrupo[e.grupo_muscular] ||= []).push(e); });
 
   await carregarTreinos();
+
+  // tema do cliente (logo, cores, contatos) para o export
+  try {
+    const { data: tema } = await db.rpc('meu_tema');
+    if (tema && tema.length) window.CLIENTE_TEMA = tema[0];
+  } catch(e){ console.warn('tema não carregou', e); }
+
   boot.classList.add('sumiu');
 })();
 
@@ -246,6 +255,7 @@ async function carregarTreinos() {
         </div>
         <div class="card-acoes">
           <button class="mini prim" onclick="editarTreino('${t.id}')">Abrir</button>
+          ${t.status === 'validado' ? `<button class="mini" onclick="exportar('${t.id}')">📄 Exportar</button>` : ''}
         </div>
       </div>`;
   }).join('');
@@ -669,6 +679,165 @@ function montarDivisao(nDias, enfase){
   }
   return div;
 }
+</script>
+
+<!-- overlay de exportação -->
+<div id="expOverlay" style="display:none;position:fixed;inset:0;background:rgba(34,51,63,.6);z-index:60;align-items:center;justify-content:center;padding:20px">
+  <div style="background:#fff;border-radius:16px;padding:26px;max-width:340px;width:100%;text-align:center">
+    <h3 style="font-size:1.1rem;font-weight:800;margin-bottom:6px">Exportar treino</h3>
+    <p style="font-size:.85rem;color:#5C7183;margin-bottom:18px">Escolha o formato para enviar ao aluno</p>
+    <div style="display:flex;gap:10px">
+      <button id="expPdf" style="flex:1;padding:14px;border:none;border-radius:10px;background:#C4321F;color:#fff;font-weight:800;cursor:pointer">PDF</button>
+      <button id="expPng" style="flex:1;padding:14px;border:none;border-radius:10px;background:#2C4356;color:#fff;font-weight:800;cursor:pointer">PNG</button>
+    </div>
+    <button id="expCancel" style="margin-top:14px;background:none;border:none;color:#5C7183;font-size:.85rem;cursor:pointer;text-decoration:underline">cancelar</button>
+    <div id="expStatus" style="margin-top:12px;font-size:.85rem;color:#5C7183;display:none">Gerando...</div>
+  </div>
+</div>
+
+<div id="folha" style="position:absolute;left:-9999px;top:0;width:800px;background:#fff"></div>
+
+<script>
+/* =========================================================
+   EXPORTAR TREINO (PDF / PNG) — com marca do cliente
+   ========================================================= */
+let treinoExportando = null;
+
+window.exportar = async (id) => {
+  const { data: t } = await db.from('treinos').select('*').eq('id', id).limit(1);
+  const { data: itens } = await db.from('treino_itens')
+    .select('*').eq('treino_id', id).eq('semana', 1).order('dia').order('ordem');
+  treinoExportando = { treino: t[0], itens: itens || [] };
+  document.getElementById('expOverlay').style.display = 'flex';
+};
+
+document.getElementById('expCancel').addEventListener('click', () => {
+  document.getElementById('expOverlay').style.display = 'none';
+});
+
+function montarFolha() {
+  const { treino, itens } = treinoExportando;
+  const c = window.CLIENTE_TEMA || {};
+  const cor = c.cor_primaria || '#39556A';
+  const corEsc = c.cor_escura || '#2C4356';
+  const corDes = c.cor_destaque || '#BEDA49';
+
+  const porDia = {};
+  DIAS.forEach(d => porDia[d] = []);
+  itens.forEach(i => porDia[i.dia].push(i));
+  const nomesDia = {};
+  itens.forEach(i => { if (i.observacao && i.observacao.startsWith('§dia:')) nomesDia[i.dia] = i.observacao.slice(5); });
+
+  const litros = ficha.peso_kg ? Math.round(ficha.peso_kg*35/100)/10 : null;
+
+  const logoHtml = c.logo_url
+    ? `<img src="${c.logo_url}" crossorigin="anonymous" style="height:54px;background:#fff;padding:4px 8px;border-radius:6px">`
+    : `<div style="font-size:1.4rem;font-weight:800;color:#fff">${esc(c.nome||'')}</div>`;
+
+  const diasComExercicio = DIAS.filter(d => porDia[d].length);
+
+  const blocosDias = diasComExercicio.map(d => {
+    const linhas = porDia[d].map(i => `
+      <tr>
+        <td style="padding:8px 6px;border-bottom:1px solid #eee">
+          <div style="font-weight:700;font-size:13px">${esc(i.exercicio_nome)}</div>
+          ${i.video_url ? `<div style="font-size:10px;color:${cor};word-break:break-all">${esc(i.video_url)}</div>` : ''}
+        </td>
+        <td style="padding:8px 6px;border-bottom:1px solid #eee;text-align:center;font-size:13px">${i.series ?? '—'}</td>
+        <td style="padding:8px 6px;border-bottom:1px solid #eee;text-align:center;font-size:13px">${esc(i.repeticoes ?? '—')}</td>
+        <td style="padding:8px 6px;border-bottom:1px solid #eee;text-align:center;font-size:13px">${i.carga_kg ?? '—'}</td>
+        <td style="padding:8px 6px;border-bottom:1px solid #eee;text-align:center;font-size:13px">${i.descanso_seg ? i.descanso_seg+'s' : '—'}</td>
+      </tr>`).join('');
+    return `
+      <div style="margin-bottom:18px;break-inside:avoid">
+        <div style="background:${cor};color:#fff;padding:8px 12px;border-radius:8px 8px 0 0;font-weight:800;font-size:14px">
+          Treino ${d}${nomesDia[d] ? ' — '+esc(nomesDia[d]) : ''}
+        </div>
+        <table style="width:100%;border-collapse:collapse;border:1px solid #eee;border-top:none">
+          <tr style="background:#f6f6f4">
+            <td style="padding:6px;font-size:11px;font-weight:700;color:#5C7183">EXERCÍCIO</td>
+            <td style="padding:6px;font-size:11px;font-weight:700;color:#5C7183;text-align:center">SÉR</td>
+            <td style="padding:6px;font-size:11px;font-weight:700;color:#5C7183;text-align:center">REPS</td>
+            <td style="padding:6px;font-size:11px;font-weight:700;color:#5C7183;text-align:center">CARGA</td>
+            <td style="padding:6px;font-size:11px;font-weight:700;color:#5C7183;text-align:center">DESC</td>
+          </tr>
+          ${linhas}
+        </table>
+      </div>`;
+  }).join('');
+
+  document.getElementById('folha').innerHTML = `
+    <div style="font-family:Arial,sans-serif;color:#22333F;padding:0">
+      <div style="background:${corEsc};padding:22px 28px;display:flex;justify-content:space-between;align-items:center">
+        ${logoHtml}
+        <div style="text-align:right;color:#fff">
+          <div style="font-size:12px;opacity:.8">Programa de treino</div>
+          <div style="font-size:16px;font-weight:800">${esc(treino.titulo||'Treino mensal')}</div>
+        </div>
+      </div>
+      <div style="padding:20px 28px">
+        <div style="display:flex;gap:20px;flex-wrap:wrap;margin-bottom:16px;font-size:13px">
+          <div><b>Aluno:</b> ${esc(ficha.nome_completo)}</div>
+          <div><b>Objetivo:</b> ${esc(treino.objetivo||ficha.objetivo_principal||'—')}</div>
+          ${treino.fase ? `<div><b>Fase:</b> ${esc(treino.fase)}</div>` : ''}
+          ${treino.peso_inicial ? `<div><b>Peso:</b> ${treino.peso_inicial} kg</div>` : ''}
+        </div>
+        ${litros ? `<div style="background:#E8F4FB;border:1px solid #B5DDF0;border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:13px;color:#1A4A63">
+          💧 <b>Hidratação:</b> beba cerca de <b>${litros} litros de água por dia</b>.
+        </div>` : ''}
+        <div style="font-size:12px;color:#5C7183;margin-bottom:14px">
+          Válido de ${fmt(treino.validado_em)} até ${fmt(treino.vence_em)} · Repita cada treino durante as 4 semanas, aumentando a carga quando possível.
+        </div>
+        ${blocosDias}
+        <div style="margin-top:20px;padding-top:14px;border-top:2px solid ${corDes};font-size:11px;color:#5C7183;text-align:center">
+          ${esc(c.nome||'')} ${c.whatsapp ? '· '+esc(c.whatsapp) : ''} ${c.instagram ? '· @'+esc(c.instagram) : ''}
+        </div>
+      </div>
+    </div>`;
+}
+
+async function gerarSaida(tipo) {
+  const st = document.getElementById('expStatus');
+  st.style.display = 'block'; st.textContent = 'Gerando...';
+  document.getElementById('expPdf').disabled = true;
+  document.getElementById('expPng').disabled = true;
+
+  montarFolha();
+  await new Promise(r => setTimeout(r, 500));
+
+  try {
+    const alvo = document.getElementById('folha').firstElementChild;
+    const canvas = await html2canvas(alvo, { scale: 2, useCORS: true, backgroundColor: '#fff' });
+    const nomeArq = `treino_${(ficha.nome_completo||'aluno').replace(/\s+/g,'_')}`;
+
+    if (tipo === 'png') {
+      const link = document.createElement('a');
+      link.download = nomeArq + '.png';
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    } else {
+      const { jsPDF } = window.jspdf;
+      const pdf = new jsPDF('p','mm','a4');
+      const w = 210, h = canvas.height * w / canvas.width;
+      const img = canvas.toDataURL('image/jpeg', 0.92);
+      let pos = 0, resto = h;
+      pdf.addImage(img,'JPEG',0,pos,w,h); resto -= 297;
+      while (resto > 0) { pos -= 297; pdf.addPage(); pdf.addImage(img,'JPEG',0,pos,w,h); resto -= 297; }
+      pdf.save(nomeArq + '.pdf');
+    }
+    document.getElementById('expOverlay').style.display = 'none';
+  } catch (err) {
+    console.error(err);
+    st.textContent = 'Erro ao gerar. Tente de novo.';
+  } finally {
+    document.getElementById('expPdf').disabled = false;
+    document.getElementById('expPng').disabled = false;
+    st.style.display = 'none';
+  }
+}
+
+document.getElementById('expPdf').addEventListener('click', () => gerarSaida('pdf'));
+document.getElementById('expPng').addEventListener('click', () => gerarSaida('png'));
 </script>
 </body>
 </html>
