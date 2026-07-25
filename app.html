@@ -326,9 +326,11 @@ async function entrar(){
   const senha = document.getElementById('inSenha').value;
   if(!email || !senha){ loginErro('Preencha e-mail e senha.'); btn.disabled=false; btn.textContent='Entrar'; return; }
 
+  await db.auth.signOut();   // limpa qualquer sessão anterior (ex: a do painel)
   const { error } = await db.auth.signInWithPassword({ email, password: senha });
   if(error){
-    loginErro(error.message.includes('Invalid') ? 'E-mail ou senha incorretos.' : 'Não foi possível entrar. Tente de novo.');
+    console.error('login:', error);
+    loginErro(error.message.includes('Invalid') ? 'E-mail ou senha incorretos.' : ('Não foi possível entrar: ' + error.message));
     btn.disabled=false; btn.textContent='Entrar'; return;
   }
   await iniciar();
@@ -344,6 +346,7 @@ async function criarConta(){
   if(!email){ loginErro('Informe seu e-mail.'); btn.disabled=false; btn.textContent='Criar meu acesso'; return; }
   if(senha.length < 6){ loginErro('A senha precisa ter ao menos 6 caracteres.'); btn.disabled=false; btn.textContent='Criar meu acesso'; return; }
 
+  await db.auth.signOut();   // limpa sessão anterior antes de criar
   const { error: e1 } = await db.auth.signUp({ email, password: senha });
   if(e1 && !String(e1.message).toLowerCase().includes('already')){
     loginErro('Não foi possível criar o acesso. ' + e1.message);
@@ -369,6 +372,15 @@ async function criarConta(){
 
 async function sair(){ await db.auth.signOut(); location.reload(); }
 
+// desloga e devolve para a tela de login com uma mensagem
+async function voltarAoLogin(msg){
+  await db.auth.signOut();
+  ficha = null;
+  document.getElementById('login').classList.remove('sumiu');
+  boot.classList.add('sumiu');
+  loginErro(msg);
+}
+
 /* ================= TEMA DO CLIENTE ================= */
 async function aplicarTema(){
   try{
@@ -390,19 +402,32 @@ async function aplicarTema(){
 async function iniciar(){
   boot.classList.remove('sumiu');
 
-  // o RLS só devolve a ficha do próprio aluno
-  let { data: fichas } = await db.from('fichas_cadastrais').select('*').limit(1);
+  const { data:{ user } } = await db.auth.getUser();
+  if(!user){ await voltarAoLogin('Sessão expirada. Entre novamente.'); return; }
 
-  // se logou mas ainda não vinculou, tenta agora
+  // IMPORTANTE: buscar a ficha pelo user_id do próprio login.
+  // Sem o .eq(), uma sessão de TREINADOR devolveria a lista toda
+  // de alunos e o app abriria com a ficha de outra pessoa.
+  let { data: fichas } = await db.from('fichas_cadastrais')
+    .select('*').eq('user_id', user.id).limit(1);
+
+  // logou mas ainda não vinculou? tenta vincular pelo e-mail
   if(!fichas || !fichas.length){
     const { data: fid } = await db.rpc('vincular_minha_ficha');
-    if(fid){ const r = await db.from('fichas_cadastrais').select('*').limit(1); fichas = r.data; }
+    if(fid){
+      const r = await db.from('fichas_cadastrais').select('*').eq('user_id', user.id).limit(1);
+      fichas = r.data;
+    }
   }
+
+  // ainda sem ficha: ou é conta de treinador, ou o e-mail não bate
   if(!fichas || !fichas.length){
-    document.getElementById('login').classList.remove('sumiu');
-    boot.classList.add('sumiu');
-    loginErro('Não encontramos sua ficha. Fale com seu treinador.');
-    await db.auth.signOut();
+    let msg = 'Não encontramos uma ficha ligada a este e-mail. Confira se é o mesmo da sua anamnese ou fale com seu treinador.';
+    try{
+      const { data: tema } = await db.rpc('meu_tema');
+      if(tema && tema.length) msg = 'Esta é a área do ALUNO. Sua conta é de treinador — acesse o painel.';
+    }catch(e){}
+    await voltarAoLogin(msg);
     return;
   }
 
