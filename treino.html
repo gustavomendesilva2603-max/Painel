@@ -558,14 +558,18 @@ document.getElementById('btnGerar').addEventListener('click', async () => {
     const f = ficha;
     const sinais = sinaisDeSaude(f);
     const nivel = nivelAluno(f);
-    const sexo = (f.sexo || '').toLowerCase(); // pode não existir; tratamos abaixo
-    // heurística de sexo: campo não existe na anamnese atual -> infere pelo nome? não.
-    // usamos a ênfase pedida: default equilibra; se souber, ajusta.
     const enfase = inferirEnfase(f);
 
-    // quantos dias o aluno marcou
-    const diasAluno = (f.dias_treino || []).length || 3;
-    const nDias = Math.min(Math.max(diasAluno, 2), 6); // entre 2 e 6
+    // fase automática a partir do objetivo do aluno
+    const obj = (f.objetivo_principal||'').toLowerCase();
+    let faseAuto = 'Hipertrofia';
+    if (/emagre|definic|condicion|resist/.test(obj)) faseAuto = 'Resistência';
+    else if (/for[çc]a/.test(obj)) faseAuto = 'Força';
+    const repsFase = REPS_FASE[faseAuto] || '8-12';
+    const descansoFase = faseAuto==='Força' ? 120 : faseAuto==='Resistência' ? 45 : (nivel==='avancado'?90:60);
+
+    // treino sempre com 6 dias (A-F), independente do que o aluno marcou
+    const nDias = 6;
 
     // local -> filtra exercícios possíveis
     const local = (f.local_treino || '').toLowerCase();
@@ -604,8 +608,8 @@ document.getElementById('btnGerar').addEventListener('click', async () => {
           itens.push({
             exercicio_id: ex.id, nome: ex.nome, video: ex.video_url,
             series: nivel==='iniciante' ? 3 : 4,
-            reps: REPS_FASE['Hipertrofia'],
-            carga: '', descanso: nivel==='avancado' ? 90 : 60,
+            reps: repsFase,
+            carga: '', descanso: descansoFase,
             revisar: !!risco, motivo: risco || ''
           });
         });
@@ -617,6 +621,8 @@ document.getElementById('btnGerar').addEventListener('click', async () => {
     document.getElementById('edTitulo').value = 'Treino gerado — revisar';
     document.getElementById('edPeso').value = f.peso_kg || '';
     document.getElementById('edObjetivo').value = f.objetivo_principal || '';
+    const selFase = document.getElementById('edFase');
+    if (selFase) selFase.value = faseAuto;
 
     abrirEditor();
 
@@ -651,33 +657,31 @@ function montarDivisao(nDias, enfase){
   const SUP1 = {nome:'Peito e Tríceps', grupos:['Peitoral','Tríceps']};
   const SUP2 = {nome:'Costas e Bíceps', grupos:['Costas','Bíceps']};
   const SUP3 = {nome:'Ombro e Abdômen', grupos:['Ombro','Abdômen']};
-  const INF1 = {nome:'Quadríceps e Glúteos', grupos:['Quadríceps','Glúteos']};
+  const BRACOS = {nome:'Braços (Bíceps e Tríceps)', grupos:['Bíceps','Tríceps']};
+  const INF1 = {nome:'Quadríceps e Panturrilha', grupos:['Quadríceps','Abdômen']};
   const INF2 = {nome:'Posterior e Glúteos', grupos:['Posterior de Coxa','Glúteos']};
+  const GLUTEO = {nome:'Glúteos e Posterior', grupos:['Glúteos','Posterior de Coxa']};
   const FULLA = {nome:'Superiores', grupos:['Peitoral','Costas','Ombro']};
   const FULLB = {nome:'Inferiores e Core', grupos:['Quadríceps','Posterior de Coxa','Abdômen']};
+
+  // split de 6 dias por ênfase:
+  //  homem  -> mais superiores (peito, costas, ombro, braço) + 2 de perna
+  //  mulher -> mais inferiores (perna, glúteo, posterior) + superiores enxutos
+  //  neutro -> equilibrado
+  const SEIS = {
+    superior: [SUP1, SUP2, SUP3, BRACOS, INF1, INF2],
+    inferior: [INF1, GLUTEO, INF2, SUP1, SUP2, SUP3],
+    equilibrado: [SUP1, SUP2, INF1, SUP3, INF2, BRACOS]
+  };
 
   const bases = {
     2: [FULLA, FULLB],
     3: [SUP1, SUP2, INF1],
     4: [SUP1, SUP2, INF1, SUP3],
     5: [SUP1, SUP2, INF1, SUP3, INF2],
-    6: [SUP1, SUP2, INF1, SUP3, INF2, {nome:'Full e Core', grupos:['Peitoral','Costas','Abdômen']}]
+    6: SEIS[enfase] || SEIS.equilibrado
   };
-  let div = bases[nDias] || bases[3];
-
-  // ênfase por gênero: troca um dos dias pelo foco pedido, quando há espaço
-  if (nDias >= 4) {
-    if (enfase === 'superior') {
-      // reforça superiores: garante Ombro/Braço extra no lugar de um inferior repetido
-      div = div.map((d,i) => (i === div.length-1 && !d.grupos.some(g=>GRUPOS_SUP.includes(g)))
-        ? {nome:'Braços e Ombro', grupos:['Bíceps','Tríceps','Ombro']} : d);
-    } else if (enfase === 'inferior') {
-      // reforça inferiores: último dia vira foco de perna/glúteo
-      div = div.map((d,i) => (i === div.length-1)
-        ? {nome:'Glúteos e Posterior', grupos:['Glúteos','Posterior de Coxa']} : d);
-    }
-  }
-  return div;
+  return bases[nDias] || bases[3];
 }
 </script>
 
@@ -737,29 +741,29 @@ function montarFolha() {
   const diasComExercicio = DIAS.filter(d => porDia[d].length);
 
   const blocosDias = diasComExercicio.map(d => {
-    const linhas = porDia[d].map(i => `
-      <tr>
-        <td style="padding:8px 6px;border-bottom:1px solid #eee">
-          <div style="font-weight:700;font-size:13px">${esc(i.exercicio_nome)}</div>
-          ${i.video_url ? `<div style="font-size:10px;color:${cor};word-break:break-all">${esc(i.video_url)}</div>` : ''}
+    const linhas = porDia[d].map((i,ix) => `
+      <tr style="background:${ix%2?'#FAFBF9':'#fff'}">
+        <td style="padding:10px 8px;border-bottom:1px solid #eee">
+          <div style="font-weight:700;font-size:13px;color:#22333F">${esc(i.exercicio_nome)}</div>
+          ${i.video_url ? `<a href="${esc(i.video_url)}" style="font-size:10px;color:${cor};text-decoration:none">▶ ver vídeo</a>` : ''}
         </td>
-        <td style="padding:8px 6px;border-bottom:1px solid #eee;text-align:center;font-size:13px">${i.series ?? '—'}</td>
-        <td style="padding:8px 6px;border-bottom:1px solid #eee;text-align:center;font-size:13px">${esc(i.repeticoes ?? '—')}</td>
-        <td style="padding:8px 6px;border-bottom:1px solid #eee;text-align:center;font-size:13px">${i.carga_kg ?? '—'}</td>
-        <td style="padding:8px 6px;border-bottom:1px solid #eee;text-align:center;font-size:13px">${i.descanso_seg ? i.descanso_seg+'s' : '—'}</td>
+        <td style="padding:10px 8px;border-bottom:1px solid #eee;text-align:center;font-size:13px;font-weight:600">${i.series ?? '—'}</td>
+        <td style="padding:10px 8px;border-bottom:1px solid #eee;text-align:center;font-size:13px;font-weight:600">${esc(i.repeticoes ?? '—')}</td>
+        <td style="padding:10px 8px;border-bottom:1px solid #eee;text-align:center;font-size:13px">${i.carga_kg ? i.carga_kg+' kg' : '—'}</td>
+        <td style="padding:10px 8px;border-bottom:1px solid #eee;text-align:center;font-size:13px">${i.descanso_seg ? i.descanso_seg+'s' : '—'}</td>
       </tr>`).join('');
     return `
-      <div style="margin-bottom:18px;break-inside:avoid">
-        <div style="background:${cor};color:#fff;padding:8px 12px;border-radius:8px 8px 0 0;font-weight:800;font-size:14px">
-          Treino ${d}${nomesDia[d] ? ' — '+esc(nomesDia[d]) : ''}
+      <div style="margin-bottom:20px;border-radius:10px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.06)">
+        <div style="background:linear-gradient(135deg,${cor},${corEsc});color:#fff;padding:11px 16px;font-weight:800;font-size:15px;letter-spacing:.3px">
+          TREINO ${d}${nomesDia[d] ? ' · '+esc(nomesDia[d]) : ''}
         </div>
-        <table style="width:100%;border-collapse:collapse;border:1px solid #eee;border-top:none">
-          <tr style="background:#f6f6f4">
-            <td style="padding:6px;font-size:11px;font-weight:700;color:#5C7183">EXERCÍCIO</td>
-            <td style="padding:6px;font-size:11px;font-weight:700;color:#5C7183;text-align:center">SÉR</td>
-            <td style="padding:6px;font-size:11px;font-weight:700;color:#5C7183;text-align:center">REPS</td>
-            <td style="padding:6px;font-size:11px;font-weight:700;color:#5C7183;text-align:center">CARGA</td>
-            <td style="padding:6px;font-size:11px;font-weight:700;color:#5C7183;text-align:center">DESC</td>
+        <table style="width:100%;border-collapse:collapse">
+          <tr style="background:#F0F2EE">
+            <td style="padding:8px;font-size:10px;font-weight:800;color:#5C7183;letter-spacing:.5px">EXERCÍCIO</td>
+            <td style="padding:8px;font-size:10px;font-weight:800;color:#5C7183;text-align:center">SÉRIES</td>
+            <td style="padding:8px;font-size:10px;font-weight:800;color:#5C7183;text-align:center">REPS</td>
+            <td style="padding:8px;font-size:10px;font-weight:800;color:#5C7183;text-align:center">CARGA</td>
+            <td style="padding:8px;font-size:10px;font-weight:800;color:#5C7183;text-align:center">DESC.</td>
           </tr>
           ${linhas}
         </table>
@@ -802,28 +806,11 @@ async function gerarSaida(tipo) {
   document.getElementById('expPdf').disabled = true;
   document.getElementById('expPng').disabled = true;
 
-  montarFolha();
-  await new Promise(r => setTimeout(r, 500));
-
   try {
-    const alvo = document.getElementById('folha').firstElementChild;
-    const canvas = await html2canvas(alvo, { scale: 2, useCORS: true, backgroundColor: '#fff' });
-    const nomeArq = `treino_${(ficha.nome_completo||'aluno').replace(/\s+/g,'_')}`;
-
-    if (tipo === 'png') {
-      const link = document.createElement('a');
-      link.download = nomeArq + '.png';
-      link.href = canvas.toDataURL('image/png');
-      link.click();
+    if (tipo === 'pdf') {
+      gerarPDFvetorial();          // PDF com texto e LINK clicável
     } else {
-      const { jsPDF } = window.jspdf;
-      const pdf = new jsPDF('p','mm','a4');
-      const w = 210, h = canvas.height * w / canvas.width;
-      const img = canvas.toDataURL('image/jpeg', 0.92);
-      let pos = 0, resto = h;
-      pdf.addImage(img,'JPEG',0,pos,w,h); resto -= 297;
-      while (resto > 0) { pos -= 297; pdf.addPage(); pdf.addImage(img,'JPEG',0,pos,w,h); resto -= 297; }
-      pdf.save(nomeArq + '.pdf');
+      await gerarPNG();            // PNG imagem, visual caprichado
     }
     document.getElementById('expOverlay').style.display = 'none';
   } catch (err) {
@@ -834,6 +821,114 @@ async function gerarSaida(tipo) {
     document.getElementById('expPng').disabled = false;
     st.style.display = 'none';
   }
+}
+
+/* ---- PDF vetorial: texto de verdade, link clicável ---- */
+function gerarPDFvetorial() {
+  const { treino, itens } = treinoExportando;
+  const c = window.CLIENTE_TEMA || {};
+  const hex = h => { h=(h||'').replace('#',''); return [parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)]; };
+  const cor    = hex(c.cor_primaria || '#39556A');
+  const corEsc = hex(c.cor_escura   || '#2C4356');
+  const corDes = hex(c.cor_destaque || '#BEDA49');
+
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF('p','mm','a4');
+  const W = 210, M = 14;
+  let y = 0;
+
+  // cabeçalho
+  pdf.setFillColor(...corEsc); pdf.rect(0,0,W,26,'F');
+  pdf.setTextColor(255); pdf.setFont('helvetica','bold'); pdf.setFontSize(16);
+  pdf.text(c.nome || 'Treino', M, 12);
+  pdf.setFont('helvetica','normal'); pdf.setFontSize(10);
+  pdf.text('Programa de treino mensal', M, 19);
+  pdf.setFont('helvetica','bold'); pdf.setFontSize(11);
+  pdf.text(esc0(treino.titulo||''), W-M, 15, {align:'right'});
+  y = 34;
+
+  // dados do aluno
+  pdf.setTextColor(34,51,63); pdf.setFontSize(10); pdf.setFont('helvetica','normal');
+  pdf.text(`Aluno: ${ficha.nome_completo||''}`, M, y);
+  pdf.text(`Objetivo: ${treino.objetivo||ficha.objetivo_principal||'—'}`, W-M, y, {align:'right'}); y+=6;
+  const linha2 = [];
+  if (treino.fase) linha2.push(`Fase: ${treino.fase}`);
+  if (treino.peso_inicial) linha2.push(`Peso: ${treino.peso_inicial} kg`);
+  linha2.push(`Válido: ${fmt(treino.validado_em)} a ${fmt(treino.vence_em)}`);
+  pdf.text(linha2.join('   |   '), M, y); y+=8;
+
+  // água
+  const litros = ficha.peso_kg ? Math.round(ficha.peso_kg*35/100)/10 : null;
+  if (litros) {
+    pdf.setFillColor(232,244,251); pdf.setDrawColor(181,221,240);
+    pdf.roundedRect(M, y-4, W-2*M, 9, 2, 2, 'FD');
+    pdf.setTextColor(26,74,99); pdf.setFontSize(10); pdf.setFont('helvetica','bold');
+    pdf.text(`Hidratacao: beba cerca de ${litros} litros de agua por dia`, M+4, y+1.5);
+    y+=12;
+  }
+
+  // dias
+  const porDia = {}; DIAS.forEach(d=>porDia[d]=[]);
+  itens.forEach(i=>porDia[i.dia].push(i));
+  const nomesDia = {};
+  itens.forEach(i=>{ if(i.observacao&&i.observacao.startsWith('§dia:')) nomesDia[i.dia]=i.observacao.slice(5); });
+
+  DIAS.filter(d=>porDia[d].length).forEach(d => {
+    if (y > 250) { pdf.addPage(); y = 20; }
+    // faixa do dia
+    pdf.setFillColor(...cor); pdf.roundedRect(M, y, W-2*M, 8, 1.5, 1.5, 'F');
+    pdf.setTextColor(255); pdf.setFont('helvetica','bold'); pdf.setFontSize(11);
+    pdf.text(`TREINO ${d}${nomesDia[d]?' - '+esc0(nomesDia[d]):''}`, M+3, y+5.5);
+    y+=11;
+
+    // cabeçalho da tabela
+    pdf.setTextColor(120,130,140); pdf.setFontSize(8); pdf.setFont('helvetica','bold');
+    pdf.text('EXERCICIO', M, y);
+    pdf.text('SER', 128, y); pdf.text('REPS', 145, y); pdf.text('CARGA', 165, y); pdf.text('DESC', 188, y);
+    y+=1.5; pdf.setDrawColor(230); pdf.line(M, y, W-M, y); y+=4;
+
+    porDia[d].forEach(i => {
+      if (y > 275) { pdf.addPage(); y = 20; }
+      pdf.setTextColor(34,51,63); pdf.setFont('helvetica','bold'); pdf.setFontSize(9.5);
+      pdf.text(esc0(i.exercicio_nome).slice(0,52), M, y);
+      pdf.setFont('helvetica','normal'); pdf.setFontSize(9.5);
+      pdf.text(String(i.series??'-'), 130, y, {align:'center'});
+      pdf.text(esc0(i.repeticoes??'-'), 148, y, {align:'center'});
+      pdf.text(String(i.carga_kg??'-'), 169, y, {align:'center'});
+      pdf.text(i.descanso_seg?i.descanso_seg+'s':'-', 191, y, {align:'center'});
+      y+=4.5;
+      // LINK clicável do vídeo
+      if (i.video_url) {
+        pdf.setTextColor(...cor); pdf.setFontSize(8);
+        pdf.textWithLink('▶ ver vídeo do exercício', M, y, { url: i.video_url });
+        y+=3;
+      }
+      pdf.setDrawColor(240); pdf.line(M, y, W-M, y); y+=4;
+    });
+    y+=4;
+  });
+
+  // rodapé
+  if (y > 270) { pdf.addPage(); y = 20; }
+  pdf.setDrawColor(...corDes); pdf.setLineWidth(0.8); pdf.line(M, y, W-M, y); y+=5;
+  pdf.setTextColor(120,130,140); pdf.setFontSize(8); pdf.setFont('helvetica','normal');
+  const rod = [c.nome, c.whatsapp, c.instagram?'@'+c.instagram:''].filter(Boolean).join('  ·  ');
+  pdf.text(rod, W/2, y, {align:'center'});
+
+  pdf.save(`treino_${(ficha.nome_completo||'aluno').replace(/\s+/g,'_')}.pdf`);
+}
+function esc0(s){ return String(s??'').normalize('NFD').replace(/[\u0300-\u036f]/g,''); } // tira acento p/ helvetica
+
+/* ---- PNG: imagem caprichada via html2canvas ---- */
+async function gerarPNG() {
+  montarFolha();
+  await new Promise(r=>setTimeout(r,500));
+  const alvo = document.getElementById('folha').firstElementChild;
+  const canvas = await html2canvas(alvo, { scale:2.5, useCORS:true, backgroundColor:'#fff' });
+  const link = document.createElement('a');
+  link.download = `treino_${(ficha.nome_completo||'aluno').replace(/\s+/g,'_')}.png`;
+  link.href = canvas.toDataURL('image/png');
+  link.click();
 }
 
 document.getElementById('expPdf').addEventListener('click', () => gerarSaida('pdf'));
