@@ -213,20 +213,30 @@
       <p class="msg-erro">Informe uma idade entre 10 e 110.</p>
     </div>
 
+    <div class="campo" data-req data-grupo="genero">
+      <label class="q">4. Gênero <span class="req">*</span></label>
+      <div class="opcoes">
+        <label class="op"><input type="radio" name="genero" value="Masculino"><span>Masculino</span></label>
+        <label class="op"><input type="radio" name="genero" value="Feminino"><span>Feminino</span></label>
+        <label class="op"><input type="radio" name="genero" value="Outro"><span>Outro</span></label>
+      </div>
+      <p class="msg-erro">Selecione uma opção.</p>
+    </div>
+
     <div class="campo" data-req>
-      <label class="q" for="profissao">4. Profissão <span class="req">*</span></label>
+      <label class="q" for="profissao">5. Profissão <span class="req">*</span></label>
       <input type="text" id="profissao" name="profissao">
       <p class="msg-erro">Informe sua profissão.</p>
     </div>
 
     <div class="campo" data-req>
-      <label class="q" for="whatsapp">5. WhatsApp (DDD + número) <span class="req">*</span></label>
+      <label class="q" for="whatsapp">6. WhatsApp (DDD + número) <span class="req">*</span></label>
       <input type="tel" id="whatsapp" name="whatsapp" placeholder="(11) 91234-5678" inputmode="tel" autocomplete="tel">
       <p class="msg-erro">Informe um WhatsApp válido com DDD.</p>
     </div>
 
     <div class="campo" data-req>
-      <label class="q" for="email">6. E-mail <span class="req">*</span></label>
+      <label class="q" for="email">7. E-mail <span class="req">*</span></label>
       <input type="email" id="email" name="email" placeholder="voce@email.com" autocomplete="email">
       <p class="msg-erro">Informe um e-mail válido.</p>
     </div>
@@ -237,7 +247,7 @@
     <div class="bloco-head"><span class="bloco-num">Bloco 02</span><h2>Histórico de treino</h2></div>
 
     <div class="campo" data-req data-grupo="ja_treinou">
-      <label class="q">7. Já treinou antes? <span class="req">*</span></label>
+      <label class="q">8. Já treinou antes? <span class="req">*</span></label>
       <div class="opcoes">
         <label class="op"><input type="radio" name="ja_treinou" value="Sim"><span>Sim</span></label>
         <label class="op"><input type="radio" name="ja_treinou" value="Não"><span>Não</span></label>
@@ -246,13 +256,13 @@
     </div>
 
     <div class="campo oculto" data-req data-depende="ja_treinou" data-valor="Sim" data-se-oculto="Nunca treinou">
-      <label class="q" for="tempo_treino_ou_parado">8. Há quanto tempo treina ou ficou parado(a)? <span class="req">*</span></label>
+      <label class="q" for="tempo_treino_ou_parado">9. Há quanto tempo treina ou ficou parado(a)? <span class="req">*</span></label>
       <input type="text" id="tempo_treino_ou_parado" name="tempo_treino_ou_parado" placeholder="Ex: treino há 6 meses / parado há 1 ano">
       <p class="msg-erro">Preencha este campo.</p>
     </div>
 
     <div class="campo" data-req data-grupo="teve_acompanhamento">
-      <label class="q">9. Já teve acompanhamento de personal ou consultoria? <span class="req">*</span></label>
+      <label class="q">10. Já teve acompanhamento de personal ou consultoria? <span class="req">*</span></label>
       <div class="opcoes">
         <label class="op"><input type="radio" name="teve_acompanhamento" value="Sim"><span>Sim</span></label>
         <label class="op"><input type="radio" name="teve_acompanhamento" value="Não"><span>Não</span></label>
@@ -261,7 +271,7 @@
     </div>
 
     <div class="campo" data-req>
-      <label class="q" for="outra_atividade">10. Pratica outra atividade física? Qual? <span class="req">*</span></label>
+      <label class="q" for="outra_atividade">11. Pratica outra atividade física? Qual? <span class="req">*</span></label>
       <input type="text" id="outra_atividade" name="outra_atividade" placeholder="Ex: futebol 1x por semana / não pratico">
       <p class="msg-erro">Preencha este campo (se não pratica, escreva "não").</p>
     </div>
@@ -272,37 +282,37 @@
     <div class="bloco-head"><span class="bloco-num">Bloco 03</span><h2>Saúde e histórico clínico</h2></div>
 
     <div class="campo" data-req>
-      <label class="q" for="lesao_ou_dor">11. Possui alguma lesão ou dor? Onde? <span class="req">*</span></label>
+      <label class="q" for="lesao_ou_dor">12. Possui alguma lesão ou dor? Onde? <span class="req">*</span></label>
       <input type="text" id="lesao_ou_dor" name="lesao_ou_dor" placeholder='Se não tiver, escreva "não"'>
       <p class="msg-erro">Preencha este campo.</p>
     </div>
 
     <div class="campo" data-req>
-      <label class="q" for="doenca_diagnosticada">12. Possui alguma doença diagnosticada? (hipertensão, diabetes, etc.) <span class="req">*</span></label>
+      <label class="q" for="doenca_diagnosticada">13. Possui alguma doença diagnosticada? (hipertensão, diabetes, etc.) <span class="req">*</span></label>
       <input type="text" id="doenca_diagnosticada" name="doenca_diagnosticada" placeholder='Se não tiver, escreva "não"'>
       <p class="msg-erro">Preencha este campo.</p>
     </div>
 
     <div class="campo" data-req>
-      <label class="q" for="medicamento_continuo">13. Faz uso de medicamento contínuo? Qual? <span class="req">*</span></label>
+      <label class="q" for="medicamento_continuo">14. Faz uso de medicamento contínuo? Qual? <span class="req">*</span></label>
       <input type="text" id="medicamento_continuo" name="medicamento_continuo" placeholder='Se não usa, escreva "não"'>
       <p class="msg-erro">Preencha este campo.</p>
     </div>
 
     <div class="campo" data-req>
-      <label class="q" for="cirurgia">14. Já passou por cirurgia? Qual? <span class="req">*</span></label>
+      <label class="q" for="cirurgia">15. Já passou por cirurgia? Qual? <span class="req">*</span></label>
       <input type="text" id="cirurgia" name="cirurgia" placeholder='Se não, escreva "não"'>
       <p class="msg-erro">Preencha este campo.</p>
     </div>
 
     <div class="campo" data-req>
-      <label class="q" for="dor_ao_movimento">15. Sente dor ao realizar algum movimento? Qual? <span class="req">*</span></label>
+      <label class="q" for="dor_ao_movimento">16. Sente dor ao realizar algum movimento? Qual? <span class="req">*</span></label>
       <input type="text" id="dor_ao_movimento" name="dor_ao_movimento" placeholder='Se não, escreva "não"'>
       <p class="msg-erro">Preencha este campo.</p>
     </div>
 
     <div class="campo" data-req data-grupo="liberacao_medica">
-      <label class="q">16. Possui liberação médica para treinar? <span class="req">*</span></label>
+      <label class="q">17. Possui liberação médica para treinar? <span class="req">*</span></label>
       <div class="opcoes">
         <label class="op"><input type="radio" name="liberacao_medica" value="Sim"><span>Sim</span></label>
         <label class="op"><input type="radio" name="liberacao_medica" value="Não"><span>Não</span></label>
@@ -317,7 +327,7 @@
     <div class="bloco-head"><span class="bloco-num">Bloco 04</span><h2>Objetivo</h2></div>
 
     <div class="campo" data-req data-grupo="objetivo_principal">
-      <label class="q">17. Qual seu objetivo principal? <span class="req">*</span></label>
+      <label class="q">18. Qual seu objetivo principal? <span class="req">*</span></label>
       <div class="opcoes">
         <label class="op"><input type="radio" name="objetivo_principal" value="Emagrecimento"><span>Emagrecimento</span></label>
         <label class="op"><input type="radio" name="objetivo_principal" value="Hipertrofia"><span>Hipertrofia</span></label>
@@ -329,13 +339,13 @@
     </div>
 
     <div class="campo" data-req>
-      <label class="q" for="prazo_objetivo">18. Em quanto tempo espera alcançar seu objetivo? <span class="req">*</span></label>
+      <label class="q" for="prazo_objetivo">19. Em quanto tempo espera alcançar seu objetivo? <span class="req">*</span></label>
       <input type="text" id="prazo_objetivo" name="prazo_objetivo" placeholder="Ex: 6 meses">
       <p class="msg-erro">Preencha este campo.</p>
     </div>
 
     <div class="campo" data-req data-grupo="maior_dificuldade">
-      <label class="q">19. Qual sua maior dificuldade hoje? <span class="req">*</span></label>
+      <label class="q">20. Qual sua maior dificuldade hoje? <span class="req">*</span></label>
       <div class="opcoes">
         <label class="op"><input type="radio" name="maior_dificuldade" value="Constância"><span>Constância</span></label>
         <label class="op"><input type="radio" name="maior_dificuldade" value="Alimentação"><span>Alimentação</span></label>
@@ -352,7 +362,7 @@
     <div class="bloco-head"><span class="bloco-num">Bloco 05</span><h2>Hábitos e rotina</h2></div>
 
     <div class="campo" data-req data-grupo="alimentacao_atual">
-      <label class="q">20. Como está sua alimentação atualmente? <span class="req">*</span></label>
+      <label class="q">21. Como está sua alimentação atualmente? <span class="req">*</span></label>
       <div class="opcoes">
         <label class="op"><input type="radio" name="alimentacao_atual" value="Boa"><span>Boa</span></label>
         <label class="op"><input type="radio" name="alimentacao_atual" value="Regular"><span>Regular</span></label>
@@ -362,7 +372,7 @@
     </div>
 
     <div class="campo" data-req data-grupo="acompanhamento_nutricionista">
-      <label class="q">21. Faz acompanhamento com nutricionista? <span class="req">*</span></label>
+      <label class="q">22. Faz acompanhamento com nutricionista? <span class="req">*</span></label>
       <div class="opcoes">
         <label class="op"><input type="radio" name="acompanhamento_nutricionista" value="Sim"><span>Sim</span></label>
         <label class="op"><input type="radio" name="acompanhamento_nutricionista" value="Não"><span>Não</span></label>
@@ -371,13 +381,13 @@
     </div>
 
     <div class="campo" data-req>
-      <label class="q" for="refeicoes_dia">22. Quantas refeições por dia? <span class="req">*</span></label>
+      <label class="q" for="refeicoes_dia">23. Quantas refeições por dia? <span class="req">*</span></label>
       <input type="number" id="refeicoes_dia" name="refeicoes_dia" min="1" max="12" inputmode="numeric">
       <p class="msg-erro">Informe um número entre 1 e 12.</p>
     </div>
 
     <div class="campo" data-req data-grupo="consome_alcool">
-      <label class="q">23. Consome álcool? <span class="req">*</span></label>
+      <label class="q">24. Consome álcool? <span class="req">*</span></label>
       <div class="opcoes">
         <label class="op"><input type="radio" name="consome_alcool" value="Sim"><span>Sim</span></label>
         <label class="op"><input type="radio" name="consome_alcool" value="Não"><span>Não</span></label>
@@ -387,7 +397,7 @@
     </div>
 
     <div class="campo" data-req data-grupo="fuma">
-      <label class="q">24. Fuma? <span class="req">*</span></label>
+      <label class="q">25. Fuma? <span class="req">*</span></label>
       <div class="opcoes">
         <label class="op"><input type="radio" name="fuma" value="Sim"><span>Sim</span></label>
         <label class="op"><input type="radio" name="fuma" value="Não"><span>Não</span></label>
@@ -396,13 +406,13 @@
     </div>
 
     <div class="campo" data-req>
-      <label class="q" for="sono_horas">25. Como está seu sono? (horas por noite) <span class="req">*</span></label>
+      <label class="q" for="sono_horas">26. Como está seu sono? (horas por noite) <span class="req">*</span></label>
       <input type="text" id="sono_horas" name="sono_horas" placeholder="Ex: 6 a 7 horas, sono leve">
       <p class="msg-erro">Preencha este campo.</p>
     </div>
 
     <div class="campo" data-req data-grupo="nivel_estresse">
-      <label class="q">26. Nível de estresse diário <span class="req">*</span></label>
+      <label class="q">27. Nível de estresse diário <span class="req">*</span></label>
       <div class="opcoes">
         <label class="op"><input type="radio" name="nivel_estresse" value="Baixo"><span>Baixo</span></label>
         <label class="op"><input type="radio" name="nivel_estresse" value="Médio"><span>Médio</span></label>
@@ -412,7 +422,7 @@
     </div>
 
     <div class="campo" data-req data-grupo="postura_trabalho">
-      <label class="q">27. Trabalha sentado(a) ou em pé? <span class="req">*</span></label>
+      <label class="q">28. Trabalha sentado(a) ou em pé? <span class="req">*</span></label>
       <div class="opcoes">
         <label class="op"><input type="radio" name="postura_trabalho" value="Sentado"><span>Sentado</span></label>
         <label class="op"><input type="radio" name="postura_trabalho" value="Em pé"><span>Em pé</span></label>
@@ -427,19 +437,19 @@
     <div class="bloco-head"><span class="bloco-num">Bloco 06</span><h2>Avaliação e estrutura</h2></div>
 
     <div class="campo" data-req>
-      <label class="q" for="peso_kg">28. Peso atual (kg) <span class="req">*</span></label>
+      <label class="q" for="peso_kg">29. Peso atual (kg) <span class="req">*</span></label>
       <input type="number" id="peso_kg" name="peso_kg" min="20" max="400" step="0.1" inputmode="decimal" placeholder="Ex: 82.5">
       <p class="msg-erro">Informe um peso entre 20 e 400 kg.</p>
     </div>
 
     <div class="campo" data-req>
-      <label class="q" for="altura_m">29. Altura (m) <span class="req">*</span></label>
+      <label class="q" for="altura_m">30. Altura (m) <span class="req">*</span></label>
       <input type="number" id="altura_m" name="altura_m" min="0.9" max="2.5" step="0.01" inputmode="decimal" placeholder="Ex: 1.75">
       <p class="msg-erro">Informe a altura em metros (ex: 1.75).</p>
     </div>
 
     <div class="campo" data-req data-grupo="fez_avaliacao_fisica">
-      <label class="q">30. Já fez avaliação física? <span class="req">*</span></label>
+      <label class="q">31. Já fez avaliação física? <span class="req">*</span></label>
       <div class="opcoes">
         <label class="op"><input type="radio" name="fez_avaliacao_fisica" value="Sim"><span>Sim</span></label>
         <label class="op"><input type="radio" name="fez_avaliacao_fisica" value="Não"><span>Não</span></label>
@@ -448,7 +458,7 @@
     </div>
 
     <div class="campo" data-req data-grupo="enviar_fotos">
-      <label class="q">31. Pretende enviar fotos para acompanhamento? <span class="req">*</span></label>
+      <label class="q">32. Pretende enviar fotos para acompanhamento? <span class="req">*</span></label>
       <div class="opcoes">
         <label class="op"><input type="radio" name="enviar_fotos" value="Sim"><span>Sim</span></label>
         <label class="op"><input type="radio" name="enviar_fotos" value="Não"><span>Não</span></label>
@@ -457,7 +467,7 @@
     </div>
 
     <div class="campo" data-req data-grupo="local_treino">
-      <label class="q">32. Treina em academia, casa ou condomínio? <span class="req">*</span></label>
+      <label class="q">33. Treina em academia, casa ou condomínio? <span class="req">*</span></label>
       <div class="opcoes">
         <label class="op"><input type="radio" name="local_treino" value="Academia"><span>Academia</span></label>
         <label class="op"><input type="radio" name="local_treino" value="Casa"><span>Casa</span></label>
@@ -467,7 +477,7 @@
     </div>
 
     <div class="campo" data-req>
-      <label class="q" for="equipamentos_disponiveis">33. Quais equipamentos tem disponível? <span class="req">*</span></label>
+      <label class="q" for="equipamentos_disponiveis">34. Quais equipamentos tem disponível? <span class="req">*</span></label>
       <input type="text" id="equipamentos_disponiveis" name="equipamentos_disponiveis" placeholder="Ex: halteres, elásticos, esteira / academia completa">
       <p class="msg-erro">Preencha este campo.</p>
     </div>
@@ -478,7 +488,7 @@
     <div class="bloco-head"><span class="bloco-num">Bloco 07</span><h2>Agenda e modalidade</h2></div>
 
     <div class="campo" data-req data-grupo="dias_treino" data-check>
-      <label class="q">34. Selecione os dias que consegue treinar <span class="req">*</span></label>
+      <label class="q">35. Selecione os dias que consegue treinar <span class="req">*</span></label>
       <p class="hint">Marque todas que se aplicam.</p>
       <div class="opcoes">
         <label class="op"><input type="checkbox" name="dias_treino" value="Segunda"><span>Segunda</span></label>
@@ -493,7 +503,7 @@
     </div>
 
     <div class="campo" data-req data-grupo="horario_treino" data-check>
-      <label class="q">35. Melhor horário para treinar <span class="req">*</span></label>
+      <label class="q">36. Melhor horário para treinar <span class="req">*</span></label>
       <p class="hint">Marque todas que se aplicam.</p>
       <div class="opcoes">
         <label class="op"><input type="checkbox" name="horario_treino" value="Manhã"><span>Manhã</span></label>
@@ -504,7 +514,7 @@
     </div>
 
     <div class="campo" data-req data-grupo="modalidade">
-      <label class="q">36. Deseja acompanhamento em qual modalidade? <span class="req">*</span></label>
+      <label class="q">37. Deseja acompanhamento em qual modalidade? <span class="req">*</span></label>
       <div class="opcoes">
         <label class="op"><input type="radio" name="modalidade" value="Online"><span>Online</span></label>
         <label class="op"><input type="radio" name="modalidade" value="Presencial"><span>Presencial</span></label>
@@ -776,6 +786,7 @@ function montarPayload() {
     nome_completo: pega('nome_completo'),
     data_nascimento: pega('data_nascimento'),
     idade: Number(pega('idade')),
+    genero: pega('genero'),
     profissao: pega('profissao'),
     whatsapp: pega('whatsapp'),
     email: pega('email').toLowerCase(),
