@@ -1,0 +1,856 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#2C4356">
+<link rel="manifest" href="manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Meu Treino">
+<link rel="apple-touch-icon" href="icone-192.png">
+<title>Meu Treino</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --primaria:#39556A; --escura:#2C4356; --destaque:#BEDA49;
+    --bg:#F4F6F3; --ink:#22333F; --err:#C4321F;
+    --card:#FFFFFF; --ink-soft:#5C7183; --line:#DDE3E0; --radius:16px; --ok:#3FA34D;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  body{font-family:"Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif;background:var(--bg);color:var(--ink);line-height:1.5;padding-bottom:78px}
+
+  #boot{position:fixed;inset:0;background:var(--escura);z-index:99;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;color:#fff}
+  #boot.sumiu{display:none}
+  .spinner{width:36px;height:36px;border:3px solid rgba(255,255,255,.25);border-top-color:#fff;border-radius:50%;animation:g .8s linear infinite}
+  @keyframes g{to{transform:rotate(360deg)}}
+
+  /* ===== LOGIN ===== */
+  #login{position:fixed;inset:0;z-index:80;background:var(--escura);display:flex;align-items:center;justify-content:center;padding:22px;overflow-y:auto}
+  #login.sumiu{display:none}
+  .login-card{background:#fff;border-radius:20px;padding:28px 24px;width:100%;max-width:380px;box-shadow:0 12px 40px rgba(0,0,0,.3)}
+  .login-card h1{font-size:1.3rem;font-weight:800;text-align:center}
+  .login-card .sub{font-size:.85rem;color:var(--ink-soft);text-align:center;margin-top:4px}
+  .login-tabs{display:flex;gap:8px;margin:16px 0 4px}
+  .login-tabs button{flex:1;padding:9px;border:1.5px solid var(--line);background:#fff;border-radius:10px;font-weight:700;font-size:.85rem;color:var(--ink-soft);cursor:pointer}
+  .login-tabs button.on{background:var(--primaria);border-color:var(--primaria);color:#fff}
+  .login-card label{display:block;font-size:.8rem;font-weight:700;color:var(--ink-soft);margin:12px 0 5px}
+  .login-card input{width:100%;padding:12px 14px;font-size:1rem;border:1.5px solid var(--line);border-radius:10px;background:#FBFAF7;color:var(--ink)}
+  .login-card input:focus{outline:none;border-color:var(--primaria);box-shadow:0 0 0 3px rgba(57,85,106,.14)}
+  .login-card .btn{width:100%;margin-top:18px;padding:13px;font-size:1rem;font-weight:800;color:var(--escura);background:var(--destaque);border:none;border-radius:10px;cursor:pointer}
+  .login-card .btn:disabled{opacity:.6;cursor:wait}
+  .login-erro{display:none;margin-top:12px;padding:11px;border-radius:9px;font-size:.84rem;background:#FBE7E3;color:var(--err);border:1px solid var(--err);font-weight:600}
+  .login-erro.on{display:block}
+  .login-erro.aviso{background:#FFF4E5;color:#8A5A12;border-color:#E8A33D}
+  .login-info{font-size:.77rem;color:var(--ink-soft);margin-top:10px;text-align:center;line-height:1.4}
+
+  /* ===== HEADER ===== */
+  header{background:var(--escura);color:#fff;padding:16px 18px 20px;position:relative}
+  header .ola{font-size:.8rem;opacity:.8}
+  header .nome{font-size:1.2rem;font-weight:800;margin-top:1px}
+  header .sair{position:absolute;top:14px;right:14px;background:rgba(255,255,255,.14);border:none;color:#fff;font-size:.72rem;font-weight:700;padding:6px 12px;border-radius:999px;cursor:pointer}
+
+  .tela{padding:16px;max-width:560px;margin:0 auto}
+  .tela.oculta{display:none}
+  h2.sec{font-size:.75rem;text-transform:uppercase;letter-spacing:.1em;color:var(--primaria);font-weight:800;margin:4px 0 10px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin-bottom:14px}
+  .vazio{color:var(--ink-soft);font-size:.88rem;text-align:center;padding:8px 0}
+
+  .tarefa{display:flex;align-items:center;gap:12px;padding:13px 15px;background:var(--card);border:1.5px solid var(--line);border-radius:14px;margin-bottom:9px;cursor:pointer;transition:all .15s}
+  .tarefa.feito{border-color:var(--ok);background:#F1F9F2}
+  .tarefa .check{width:26px;height:26px;border-radius:50%;border:2px solid var(--line);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:.85rem;color:#fff;font-weight:800}
+  .tarefa.feito .check{background:var(--ok);border-color:var(--ok)}
+  .tarefa .txt{font-weight:600;font-size:.96rem}
+  .tarefa .txt small{display:block;font-weight:400;font-size:.77rem;color:var(--ink-soft)}
+
+  .dia-hero{background:linear-gradient(135deg,var(--primaria),var(--escura));color:#fff;border-radius:var(--radius);padding:18px;margin-bottom:12px}
+  .dia-hero .label{font-size:.78rem;opacity:.85}
+  .dia-hero .nome{font-size:1.45rem;font-weight:800;margin-top:1px}
+  .dia-hero .qtd{font-size:.82rem;opacity:.85;margin-top:3px}
+
+  .ex-item{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:13px;margin-bottom:9px}
+  .ex-item .top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+  .ex-item .nome{font-weight:700;font-size:.98rem}
+  .ex-item .dados{display:flex;gap:13px;margin-top:7px;font-size:.83rem;color:var(--ink-soft);flex-wrap:wrap}
+  .ex-item .dados b{color:var(--ink)}
+  .ex-video-btn{display:inline-flex;align-items:center;gap:5px;background:#FF0000;color:#fff;font-size:.78rem;font-weight:700;padding:7px 12px;border-radius:999px;text-decoration:none;white-space:nowrap;flex-shrink:0}
+
+  .seletor-dia{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+  .seletor-dia button{padding:8px 14px;border-radius:10px;font-weight:800;font-size:.86rem;border:1.5px solid var(--line);background:#fff;color:var(--ink-soft);cursor:pointer}
+  .seletor-dia button.on{background:var(--primaria);border-color:var(--primaria);color:#fff}
+
+  .toggle-linha{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:13px 0;border-bottom:1px solid var(--line)}
+  .toggle-linha:last-child{border-bottom:none}
+  .toggle-linha .lbl{font-weight:600;font-size:.95rem}
+  .toggle-linha .lbl small{display:block;font-weight:400;font-size:.77rem;color:var(--ink-soft)}
+  .switch{width:52px;height:30px;border-radius:999px;background:var(--line);position:relative;cursor:pointer;transition:.2s;flex-shrink:0}
+  .switch.on{background:var(--ok)}
+  .switch::after{content:"";position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;background:#fff;transition:.2s}
+  .switch.on::after{left:25px}
+  .campo-num{display:flex;flex-direction:column;gap:6px;padding:13px 0;border-top:1px solid var(--line)}
+  .campo-num label{font-weight:600;font-size:.88rem}
+  .campo-num input,.campo-num textarea{padding:11px 13px;border:1.5px solid var(--line);border-radius:10px;font-size:1rem;font-family:inherit;background:#FBFAF7;color:var(--ink)}
+  .campo-num input:focus,.campo-num textarea:focus{outline:none;border-color:var(--primaria)}
+
+  .btn-primary{width:100%;padding:14px;font-size:1rem;font-weight:800;color:#fff;background:var(--primaria);border:none;border-radius:12px;cursor:pointer}
+  .btn-primary:disabled{opacity:.6;cursor:wait}
+  .btn-destaque{background:var(--destaque);color:var(--escura)}
+  .btn-outline{background:transparent;border:1.5px solid var(--primaria);color:var(--primaria)}
+
+  .msg{padding:12px;border-radius:10px;font-size:.87rem;margin-top:12px;display:none;font-weight:600}
+  .msg.ok{display:block;background:#EDF5D4;color:#5C7414}
+  .msg.err{display:block;background:#FBE7E3;color:var(--err)}
+
+  .dado-edit{margin-bottom:12px}
+  .dado-edit label{display:block;font-size:.79rem;font-weight:700;color:var(--ink-soft);margin-bottom:5px}
+  .dado-edit input{width:100%;padding:11px 13px;border:1.5px solid var(--line);border-radius:10px;font-size:1rem;background:#FBFAF7;color:var(--ink)}
+  .dado-edit input:focus{outline:none;border-color:var(--primaria)}
+  .dado-ro{display:flex;justify-content:space-between;gap:14px;padding:9px 0;border-bottom:1px dashed #E8EBE9;font-size:.89rem}
+  .dado-ro:last-child{border-bottom:none}
+  .dado-ro .k{color:var(--ink-soft);flex-shrink:0}
+  .dado-ro .v{font-weight:600;text-align:right}
+
+  .hist-linha{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--line);font-size:.87rem}
+  .hist-linha:last-child{border-bottom:none}
+  .hist-icons{display:flex;gap:8px;font-size:1rem}
+  .hist-icons span{opacity:.22}
+  .hist-icons span.on{opacity:1}
+
+  .streak{background:linear-gradient(135deg,#FF8A3D,#E8542E);color:#fff;border-radius:14px;padding:14px 16px;margin-bottom:12px;display:flex;align-items:center;gap:12px}
+  .streak .n{font-size:1.8rem;font-weight:800;line-height:1}
+  .streak .t{font-size:.85rem;opacity:.95}
+
+  .nav{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--line);display:flex;z-index:30;padding-bottom:env(safe-area-inset-bottom)}
+  .nav button{flex:1;padding:9px 4px 7px;background:none;border:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:1px;color:var(--ink-soft);font-size:.67rem;font-weight:700}
+  .nav button.on{color:var(--primaria)}
+  .nav button .ic{font-size:1.25rem}
+
+  /* registro de carga */
+  .reg-box{margin-top:10px;padding-top:10px;border-top:1px dashed var(--line);display:none}
+  .reg-box.on{display:block}
+  .reg-linha{display:flex;gap:8px}
+  .reg-linha input{flex:1;padding:9px 10px;border:1.5px solid var(--line);border-radius:9px;font-size:.92rem;background:#FBFAF7;color:var(--ink);min-width:0}
+  .reg-linha input:focus{outline:none;border-color:var(--primaria)}
+  .reg-linha button{padding:9px 14px;border:none;border-radius:9px;background:var(--primaria);color:#fff;font-weight:700;font-size:.85rem;cursor:pointer;white-space:nowrap}
+  .reg-toggle{background:none;border:none;color:var(--primaria);font-size:.8rem;font-weight:700;cursor:pointer;padding:6px 0;margin-top:6px}
+  .reg-feito{font-size:.78rem;color:#5C7414;font-weight:700;margin-top:6px}
+  .reg-ultimo{font-size:.76rem;color:var(--ink-soft);margin-top:4px}
+
+  /* gráfico */
+  .graf{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin-bottom:14px}
+  .graf h3{font-size:.75rem;text-transform:uppercase;letter-spacing:.1em;color:var(--primaria);font-weight:800;margin-bottom:10px}
+  .graf-stats{display:flex;gap:16px;flex-wrap:wrap;margin-top:8px;font-size:.8rem}
+  .graf-stats b{display:block;font-size:1.05rem;color:var(--ink)}
+  .graf-stats span{color:var(--ink-soft)}
+
+  /* aviso offline */
+  .offline-bar{position:fixed;top:0;left:0;right:0;background:#E8862E;color:#fff;text-align:center;padding:7px;font-size:.8rem;font-weight:700;z-index:90;display:none}
+  .offline-bar.on{display:block}
+  .pend-bar{background:#5C7183}
+
+  @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+
+<div class="offline-bar" id="offlineBar">Sem conexão — seus registros serão salvos quando voltar</div>
+
+<div id="boot"><div class="spinner"></div><div>Carregando...</div></div>
+
+<!-- ===================== LOGIN ===================== -->
+<div id="login">
+  <div class="login-card">
+    <h1 id="loginTitulo">Meu Treino</h1>
+    <p class="sub">Área do aluno</p>
+
+    <div class="login-tabs">
+      <button id="tabEntrar" class="on" onclick="trocarTab('entrar')">Entrar</button>
+      <button id="tabCriar" onclick="trocarTab('criar')">1º acesso</button>
+    </div>
+
+    <div id="formEntrar">
+      <label for="inEmail">E-mail</label>
+      <input type="email" id="inEmail" autocomplete="email" autocapitalize="none" placeholder="seu e-mail cadastrado">
+      <label for="inSenha">Senha</label>
+      <input type="password" id="inSenha" autocomplete="current-password">
+      <button class="btn" id="btnEntrar" onclick="entrar()">Entrar</button>
+    </div>
+
+    <div id="formCriar" style="display:none">
+      <label for="inEmailC">E-mail cadastrado</label>
+      <input type="email" id="inEmailC" autocomplete="email" autocapitalize="none" placeholder="o mesmo e-mail da sua ficha">
+      <label for="inSenhaC">Crie uma senha</label>
+      <input type="password" id="inSenhaC" autocomplete="new-password" placeholder="mínimo 6 caracteres">
+      <button class="btn" id="btnCriar" onclick="criarConta()">Criar meu acesso</button>
+      <p class="login-info">Use exatamente o mesmo e-mail que você informou ao preencher sua ficha de anamnese.</p>
+    </div>
+
+    <div class="login-erro" id="loginErro"></div>
+  </div>
+</div>
+
+<!-- ===================== APP ===================== -->
+<header>
+  <div class="ola">Olá,</div>
+  <div class="nome" id="hNome">—</div>
+  <button class="sair" onclick="sair()">Sair</button>
+</header>
+
+<!-- TELA HOJE -->
+<div class="tela" id="telaHoje">
+  <div id="streakBox"></div>
+  <h2 class="sec">Tarefas de hoje</h2>
+  <div id="tarefasHoje"></div>
+  <h2 class="sec" style="margin-top:20px">Treino de hoje</h2>
+  <div id="treinoHoje"></div>
+</div>
+
+<!-- TELA TREINO -->
+<div class="tela oculta" id="telaTreino">
+  <h2 class="sec">Meu treino</h2>
+  <div id="treinoInfo"></div>
+  <div class="seletor-dia" id="seletorDia"></div>
+  <div id="treinoDetalhe"></div>
+</div>
+
+<!-- TELA CHECK-IN -->
+<div class="tela oculta" id="telaCheckin">
+  <h2 class="sec">Check-in de hoje</h2>
+  <div class="card">
+    <div class="toggle-linha">
+      <div class="lbl">Treinei hoje<small>Marque ao completar o treino</small></div>
+      <div class="switch" id="swTreinou" onclick="toggleSw('swTreinou')"></div>
+    </div>
+    <div class="toggle-linha">
+      <div class="lbl">Alimentação em dia<small>Segui o plano alimentar</small></div>
+      <div class="switch" id="swAlim" onclick="toggleSw('swAlim')"></div>
+    </div>
+    <div class="toggle-linha">
+      <div class="lbl">Bebi água<small id="metaAgua">Meta de hidratação</small></div>
+      <div class="switch" id="swAgua" onclick="toggleSw('swAgua')"></div>
+    </div>
+    <div class="campo-num">
+      <label for="inPesoDia">Peso de hoje (kg) — opcional</label>
+      <input type="number" step="0.1" id="inPesoDia" inputmode="decimal" placeholder="Ex: 82.5">
+    </div>
+    <div class="campo-num" style="border-top:none;padding-top:0">
+      <label for="inObsDia">Como foi o treino? — opcional</label>
+      <textarea id="inObsDia" rows="2" placeholder="Ex: pesado, mas consegui"></textarea>
+    </div>
+  </div>
+  <button class="btn-primary btn-destaque" id="btnCheckin" onclick="salvarCheckin()">Salvar check-in</button>
+  <div class="msg" id="msgCheckin"></div>
+
+  <div class="graf" id="grafPeso" style="margin-top:22px"></div>
+
+  <h2 class="sec">Últimos dias</h2>
+  <div class="card" id="historico"></div>
+</div>
+
+<!-- TELA PERFIL -->
+<div class="tela oculta" id="telaDados">
+  <h2 class="sec">Meus dados</h2>
+  <div class="card">
+    <div class="dado-edit"><label for="dWhats">WhatsApp</label><input type="tel" id="dWhats" inputmode="tel"></div>
+    <div class="dado-edit"><label for="dProf">Profissão</label><input type="text" id="dProf"></div>
+    <div class="dado-edit"><label for="dPeso">Peso atual (kg)</label><input type="number" step="0.1" id="dPeso" inputmode="decimal"></div>
+    <div class="dado-edit"><label for="dAltura">Altura (m)</label><input type="number" step="0.01" id="dAltura" inputmode="decimal"></div>
+    <button class="btn-primary" id="btnSalvarDados" onclick="salvarDados()">Salvar alterações</button>
+    <div class="msg" id="msgDados"></div>
+  </div>
+
+  <h2 class="sec" style="margin-top:18px">Minha ficha</h2>
+  <div class="card" id="dadosRO"></div>
+
+  <h2 class="sec" style="margin-top:18px">Solicitações</h2>
+  <div class="card">
+    <button class="btn-primary" id="btnSolTreino" onclick="solicitar('novo_treino')">🔄 Pedir novo treino</button>
+    <button class="btn-primary btn-outline" id="btnSolAcomp" style="margin-top:10px" onclick="solicitar('acompanhamento')">📅 Pedir dia de acompanhamento</button>
+    <div class="msg" id="msgSol"></div>
+    <div id="minhasSolicitacoes" style="margin-top:14px"></div>
+  </div>
+</div>
+
+<div class="nav">
+  <button class="on" id="navHoje" onclick="irPara('Hoje')"><span class="ic">🏠</span>Hoje</button>
+  <button id="navTreino" onclick="irPara('Treino')"><span class="ic">🏋️</span>Treino</button>
+  <button id="navCheckin" onclick="irPara('Checkin')"><span class="ic">✅</span>Check-in</button>
+  <button id="navDados" onclick="irPara('Dados')"><span class="ic">👤</span>Perfil</button>
+</div>
+
+<script>
+/* =========================================================
+   APP DO ALUNO
+   A segurança NÃO está aqui — está no RLS do banco.
+   Este arquivo só pede; o banco decide o que devolve.
+   ========================================================= */
+const SUPABASE_URL      = "https://sloamqnvbstpihfzsfqk.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_tyCGNNaJeiD39y9fVPBmGg_nC2Oonev";
+const DIAS = ['A','B','C','D','E','F'];
+
+const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+let ficha = null, treino = null, itens = [], checkins = [], checkinHoje = null;
+let execHoje = {};      // { treino_item_id: registro de hoje }
+let ultimaCarga = {};   // { exercicio_nome: ultimo registro }
+let diaVendo = 'A';
+
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const boot = document.getElementById('boot');
+function hojeISO(){
+  const d = new Date();
+  return new Date(d.getTime() - d.getTimezoneOffset()*60000).toISOString().slice(0,10);
+}
+function fmtDia(d){ if(!d) return '—'; const p=String(d).slice(0,10).split('-'); return p[2]+'/'+p[1]; }
+function fmtData(d){ if(!d) return '—'; const p=String(d).slice(0,10).split('-'); return p[2]+'/'+p[1]+'/'+p[0]; }
+
+/* ================= LOGIN ================= */
+function trocarTab(qual){
+  document.getElementById('tabEntrar').classList.toggle('on', qual==='entrar');
+  document.getElementById('tabCriar').classList.toggle('on', qual==='criar');
+  document.getElementById('formEntrar').style.display = qual==='entrar' ? 'block' : 'none';
+  document.getElementById('formCriar').style.display  = qual==='criar'  ? 'block' : 'none';
+  loginErro('');
+}
+function loginErro(t, aviso){
+  const e = document.getElementById('loginErro');
+  e.textContent = t || '';
+  e.classList.toggle('on', !!t);
+  e.classList.toggle('aviso', !!aviso);
+}
+
+async function entrar(){
+  const btn = document.getElementById('btnEntrar');
+  btn.disabled = true; btn.textContent = 'Entrando...'; loginErro('');
+  const email = document.getElementById('inEmail').value.trim().toLowerCase();
+  const senha = document.getElementById('inSenha').value;
+  if(!email || !senha){ loginErro('Preencha e-mail e senha.'); btn.disabled=false; btn.textContent='Entrar'; return; }
+
+  const { error } = await db.auth.signInWithPassword({ email, password: senha });
+  if(error){
+    loginErro(error.message.includes('Invalid') ? 'E-mail ou senha incorretos.' : 'Não foi possível entrar. Tente de novo.');
+    btn.disabled=false; btn.textContent='Entrar'; return;
+  }
+  await iniciar();
+  btn.disabled=false; btn.textContent='Entrar';
+}
+
+async function criarConta(){
+  const btn = document.getElementById('btnCriar');
+  btn.disabled = true; btn.textContent = 'Criando...'; loginErro('');
+  const email = document.getElementById('inEmailC').value.trim().toLowerCase();
+  const senha = document.getElementById('inSenhaC').value;
+
+  if(!email){ loginErro('Informe seu e-mail.'); btn.disabled=false; btn.textContent='Criar meu acesso'; return; }
+  if(senha.length < 6){ loginErro('A senha precisa ter ao menos 6 caracteres.'); btn.disabled=false; btn.textContent='Criar meu acesso'; return; }
+
+  const { error: e1 } = await db.auth.signUp({ email, password: senha });
+  if(e1 && !String(e1.message).toLowerCase().includes('already')){
+    loginErro('Não foi possível criar o acesso. ' + e1.message);
+    btn.disabled=false; btn.textContent='Criar meu acesso'; return;
+  }
+  if(e1){ loginErro('Este e-mail já possui acesso. Use a aba "Entrar".', true); btn.disabled=false; btn.textContent='Criar meu acesso'; return; }
+
+  const { error: e2 } = await db.auth.signInWithPassword({ email, password: senha });
+  if(e2){
+    loginErro('Acesso criado! Se pedirem confirmação por e-mail, confirme e volte em "Entrar".', true);
+    btn.disabled=false; btn.textContent='Criar meu acesso'; return;
+  }
+
+  const { data: fid } = await db.rpc('vincular_minha_ficha');
+  if(!fid){
+    loginErro('Acesso criado, mas não encontramos uma ficha com este e-mail. Confira se é o mesmo e-mail da sua anamnese ou fale com seu treinador.');
+    await db.auth.signOut();
+    btn.disabled=false; btn.textContent='Criar meu acesso'; return;
+  }
+  await iniciar();
+  btn.disabled=false; btn.textContent='Criar meu acesso';
+}
+
+async function sair(){ await db.auth.signOut(); location.reload(); }
+
+/* ================= TEMA DO CLIENTE ================= */
+async function aplicarTema(){
+  try{
+    const { data } = await db.rpc('meu_tema_aluno');
+    if(!data || !data.length) return;
+    const t = data[0], r = document.documentElement.style;
+    r.setProperty('--primaria', t.cor_primaria);
+    r.setProperty('--escura',   t.cor_escura);
+    r.setProperty('--destaque', t.cor_destaque);
+    r.setProperty('--err',      t.cor_erro);
+    document.title = 'Meu Treino — ' + t.nome;
+    document.getElementById('loginTitulo').textContent = t.nome;
+    const meta = document.querySelector('meta[name=theme-color]');
+    if(meta) meta.setAttribute('content', t.cor_escura);
+  }catch(e){ console.warn('tema não carregou', e); }
+}
+
+/* ================= INICIALIZAÇÃO ================= */
+async function iniciar(){
+  boot.classList.remove('sumiu');
+
+  // o RLS só devolve a ficha do próprio aluno
+  let { data: fichas } = await db.from('fichas_cadastrais').select('*').limit(1);
+
+  // se logou mas ainda não vinculou, tenta agora
+  if(!fichas || !fichas.length){
+    const { data: fid } = await db.rpc('vincular_minha_ficha');
+    if(fid){ const r = await db.from('fichas_cadastrais').select('*').limit(1); fichas = r.data; }
+  }
+  if(!fichas || !fichas.length){
+    document.getElementById('login').classList.remove('sumiu');
+    boot.classList.add('sumiu');
+    loginErro('Não encontramos sua ficha. Fale com seu treinador.');
+    await db.auth.signOut();
+    return;
+  }
+
+  ficha = fichas[0];
+  document.getElementById('hNome').textContent = String(ficha.nome_completo||'').split(' ')[0];
+  await aplicarTema();
+
+  // treino validado mais recente
+  const { data: treinos } = await db.from('treinos')
+    .select('*').eq('ficha_id', ficha.id).eq('status','validado')
+    .order('validado_em', { ascending:false }).limit(1);
+  treino = (treinos && treinos[0]) || null;
+  itens = [];
+  if(treino){
+    const { data: its } = await db.from('treino_itens')
+      .select('*').eq('treino_id', treino.id).eq('semana',1).order('dia').order('ordem');
+    itens = its || [];
+  }
+
+  // check-ins recentes
+  const { data: cks } = await db.from('checkins')
+    .select('*').eq('ficha_id', ficha.id).order('data',{ ascending:false }).limit(60);
+  checkins = cks || [];
+  checkinHoje = checkins.find(c => c.data === hojeISO()) || null;
+
+  // cargas já registradas (hoje + última de cada exercício)
+  execHoje = {}; ultimaCarga = {};
+  const { data: exs } = await db.from('execucoes')
+    .select('*').eq('ficha_id', ficha.id).order('data',{ ascending:false }).limit(300);
+  (exs||[]).forEach(function(e){
+    if(e.data === hojeISO() && e.treino_item_id) execHoje[e.treino_item_id] = e;
+    if(!ultimaCarga[e.exercicio_nome]) ultimaCarga[e.exercicio_nome] = e;  // o mais recente vem primeiro
+  });
+
+  // envia o que ficou pendente offline
+  enviarFila();
+
+  diaVendo = proximoDia();
+  renderHoje(); renderTreino(); renderCheckin(); renderDados(); renderSolicitacoes();
+
+  document.getElementById('login').classList.add('sumiu');
+  boot.classList.add('sumiu');
+}
+
+// próximo treino da fila: avança conforme os treinos já marcados
+function proximoDia(){
+  const disp = DIAS.filter(d => itens.some(i => i.dia === d));
+  if(!disp.length) return 'A';
+  const feitos = checkins.filter(c => c.treinou && c.data !== hojeISO()).length;
+  return disp[feitos % disp.length];
+}
+
+function metaAgua(){ return (ficha && ficha.peso_kg) ? Math.round(ficha.peso_kg*35/100)/10 : null; }
+
+function nomeDoDia(d){
+  const m = itens.find(i => i.dia===d && i.observacao && i.observacao.indexOf('§dia:')===0);
+  return m ? m.observacao.slice(5) : '';
+}
+
+/* ================= TELA HOJE ================= */
+function renderHoje(){
+  // sequência de dias seguidos com treino
+  const seq = calcularStreak();
+  document.getElementById('streakBox').innerHTML = seq >= 2
+    ? '<div class="streak"><div class="n">'+seq+'</div><div class="t">dias seguidos treinando<br><b>Continue assim!</b></div></div>'
+    : '';
+
+  const c = checkinHoje || {};
+  const meta = metaAgua();
+  const tarefas = [
+    { k:'treinou',     ic:'🏋️', t:'Fazer o treino de hoje', s:'Treino ' + diaVendo + (nomeDoDia(diaVendo) ? ' · ' + nomeDoDia(diaVendo) : '') },
+    { k:'alimentacao', ic:'🥗', t:'Seguir a alimentação',   s:'Marque quando cumprir' },
+    { k:'agua',        ic:'💧', t:'Beber água',             s: meta ? ('Meta: ' + meta + ' L') : 'Hidrate-se' }
+  ];
+  document.getElementById('tarefasHoje').innerHTML = tarefas.map(function(x){
+    return '<div class="tarefa ' + (c[x.k]?'feito':'') + '" onclick="marcarTarefa(\'' + x.k + '\')">' +
+             '<div class="check">' + (c[x.k]?'✓':'') + '</div>' +
+             '<div class="txt">' + x.ic + ' ' + x.t + '<small>' + esc(x.s) + '</small></div>' +
+           '</div>';
+  }).join('');
+
+  const box = document.getElementById('treinoHoje');
+  if(!treino){
+    box.innerHTML = '<div class="card"><div class="vazio">Seu treinador ainda não liberou um treino.</div>' +
+                    '<button class="btn-primary" style="margin-top:10px" onclick="irPara(\'Dados\')">Pedir meu treino</button></div>';
+    return;
+  }
+  const doDia = itens.filter(i => i.dia === diaVendo);
+  if(!doDia.length){ box.innerHTML = '<div class="card"><div class="vazio">Dia de descanso.</div></div>'; return; }
+
+  box.innerHTML =
+    '<div class="dia-hero"><div class="label">Hoje é o</div>' +
+    '<div class="nome">Treino ' + diaVendo + '</div>' +
+    '<div class="qtd">' + (nomeDoDia(diaVendo) ? esc(nomeDoDia(diaVendo)) + ' · ' : '') + doDia.length + ' exercícios</div></div>' +
+    doDia.map(exHTML).join('') +
+    '<button class="btn-primary btn-destaque" style="margin-top:4px" onclick="irPara(\'Checkin\')">✅ Registrar que treinei</button>';
+}
+
+function calcularStreak(){
+  let n = 0;
+  const d = new Date();
+  for(let i=0;i<60;i++){
+    const iso = new Date(d.getTime() - d.getTimezoneOffset()*60000).toISOString().slice(0,10);
+    const c = checkins.find(x => x.data === iso);
+    if(c && c.treinou) n++;
+    else if(i > 0) break;          // ontem em diante quebra a sequência
+    d.setDate(d.getDate()-1);
+  }
+  return n;
+}
+
+function exHTML(i){
+  const feito = execHoje[i.id];
+  const ult = ultimaCarga[i.exercicio_nome];
+  return '<div class="ex-item" id="ex_' + i.id + '"><div class="top"><div>' +
+    '<div class="nome">' + esc(i.exercicio_nome) + '</div>' +
+    '<div class="dados">' +
+      '<span><b>' + (i.series != null ? i.series : '—') + '</b> séries</span>' +
+      '<span><b>' + esc(i.repeticoes != null ? i.repeticoes : '—') + '</b> reps</span>' +
+      (i.carga_kg ? '<span><b>' + i.carga_kg + '</b> kg</span>' : '') +
+      (i.descanso_seg ? '<span>desc. <b>' + i.descanso_seg + 's</b></span>' : '') +
+    '</div></div>' +
+    (i.video_url ? '<a class="ex-video-btn" href="' + esc(i.video_url) + '" target="_blank" rel="noopener">▶ vídeo</a>' : '') +
+    '</div>' +
+    (ult && !feito ? '<div class="reg-ultimo">Última vez: <b>' + ult.carga_kg + ' kg</b> · ' + esc(ult.reps_feitas||'') + '</div>' : '') +
+    (feito
+      ? '<div class="reg-feito">✓ Registrado hoje: ' + (feito.carga_kg||'—') + ' kg · ' + esc(feito.reps_feitas||'—') + '</div>'
+      : '<button class="reg-toggle" onclick="abrirReg(\'' + i.id + '\')">＋ registrar o que fiz</button>') +
+    '<div class="reg-box" id="reg_' + i.id + '">' +
+      '<div class="reg-linha">' +
+        '<input type="number" step="0.5" inputmode="decimal" id="rc_' + i.id + '" placeholder="Carga kg" value="' + (ult ? ult.carga_kg : (i.carga_kg||'')) + '">' +
+        '<input type="text" id="rr_' + i.id + '" placeholder="Reps ex: 10,10,8">' +
+        '<button onclick="salvarCarga(\'' + i.id + '\',\'' + esc(i.exercicio_nome).replace(/'/g,"") + '\')">Salvar</button>' +
+      '</div>' +
+    '</div>' +
+    '</div>';
+}
+
+function abrirReg(id){
+  const b = document.getElementById('reg_' + id);
+  if(b) b.classList.toggle('on');
+}
+
+async function salvarCarga(itemId, nome){
+  const carga = parseFloat(document.getElementById('rc_'+itemId).value) || null;
+  const reps  = document.getElementById('rr_'+itemId).value.trim() || null;
+  if(!carga && !reps){ alert('Informe a carga ou as repetições.'); return; }
+
+  const reg = {
+    ficha_id: ficha.id, cliente_id: ficha.cliente_id,
+    treino_item_id: itemId, exercicio_nome: nome,
+    data: hojeISO(), carga_kg: carga, reps_feitas: reps
+  };
+
+  if(!navigator.onLine){ filaOffline('execucoes', reg); execHoje[itemId] = reg; renderTreino(); renderHoje(); return; }
+
+  const { data, error } = await db.from('execucoes')
+    .upsert(reg, { onConflict:'ficha_id,treino_item_id,data' }).select().limit(1);
+  if(error){ console.error('carga:', error); alert('Não consegui salvar. Tente de novo.'); return; }
+  execHoje[itemId] = data[0];
+  ultimaCarga[nome] = data[0];
+  renderTreino(); renderHoje();
+}
+
+async function marcarTarefa(campo){
+  const atual = checkinHoje ? !!checkinHoje[campo] : false;
+  const ok = await upsertCheckin({ [campo]: !atual });
+  if(!ok) alert('Não consegui salvar agora. Verifique sua conexão.');
+  renderHoje(); renderCheckin();
+}
+
+/* ================= TELA TREINO ================= */
+function renderTreino(){
+  const info = document.getElementById('treinoInfo');
+  if(treino){
+    info.innerHTML = '<div class="card" style="padding:12px 14px">' +
+      '<div style="font-weight:700">' + esc(treino.titulo||'Treino') + '</div>' +
+      '<div style="font-size:.8rem;color:var(--ink-soft);margin-top:2px">' +
+      (treino.fase ? 'Fase: ' + esc(treino.fase) + ' · ' : '') +
+      'Válido até ' + fmtData(treino.vence_em) + '</div></div>';
+  } else info.innerHTML = '';
+
+  const disp = DIAS.filter(d => itens.some(i => i.dia === d));
+  document.getElementById('seletorDia').innerHTML = disp.map(function(d){
+    return '<button class="' + (d===diaVendo?'on':'') + '" onclick="verDia(\'' + d + '\')">' + d + '</button>';
+  }).join('');
+
+  const doDia = itens.filter(i => i.dia === diaVendo);
+  document.getElementById('treinoDetalhe').innerHTML =
+    (!disp.length ? '<div class="card"><div class="vazio">Nenhum treino montado ainda.</div></div>' :
+      (nomeDoDia(diaVendo) ? '<div class="card" style="text-align:center;font-weight:700;padding:12px">' + esc(nomeDoDia(diaVendo)) + '</div>' : '') +
+      (doDia.map(exHTML).join('') || '<div class="card"><div class="vazio">Sem exercícios neste dia.</div></div>'));
+}
+function verDia(d){ diaVendo = d; renderTreino(); }
+
+/* ================= TELA CHECK-IN ================= */
+function renderCheckin(){
+  const c = checkinHoje || {};
+  setSw('swTreinou', c.treinou); setSw('swAlim', c.alimentacao); setSw('swAgua', c.agua);
+  document.getElementById('inPesoDia').value = c.peso_dia || '';
+  document.getElementById('inObsDia').value  = c.observacao || '';
+  const meta = metaAgua();
+  document.getElementById('metaAgua').textContent = meta ? ('Meta: ' + meta + ' litros por dia') : 'Mantenha-se hidratado';
+
+  // gráfico de peso
+  const pts = checkins.filter(function(c){ return c.peso_dia; })
+                      .map(function(c){ return { data:c.data, peso:Number(c.peso_dia) }; });
+  document.getElementById('grafPeso').innerHTML =
+    '<h3>📈 Sua evolução de peso</h3>' + graficoPeso(pts);
+
+  const h = document.getElementById('historico');
+  h.innerHTML = checkins.length
+    ? checkins.slice(0,10).map(function(c){
+        return '<div class="hist-linha"><span>' + fmtDia(c.data) + '</span>' +
+          '<div class="hist-icons">' +
+            '<span class="' + (c.treinou?'on':'') + '">🏋️</span>' +
+            '<span class="' + (c.alimentacao?'on':'') + '">🥗</span>' +
+            '<span class="' + (c.agua?'on':'') + '">💧</span>' +
+          '</div></div>';
+      }).join('')
+    : '<div class="vazio">Ainda sem registros.</div>';
+}
+function setSw(id,v){ document.getElementById(id).classList.toggle('on', !!v); }
+function toggleSw(id){ document.getElementById(id).classList.toggle('on'); }
+
+async function salvarCheckin(){
+  const btn = document.getElementById('btnCheckin');
+  btn.disabled = true; btn.textContent = 'Salvando...';
+  const ok = await upsertCheckin({
+    treinou:     document.getElementById('swTreinou').classList.contains('on'),
+    alimentacao: document.getElementById('swAlim').classList.contains('on'),
+    agua:        document.getElementById('swAgua').classList.contains('on'),
+    peso_dia:    parseFloat(document.getElementById('inPesoDia').value) || null,
+    observacao:  document.getElementById('inObsDia').value.trim() || null
+  });
+  btn.disabled = false; btn.textContent = 'Salvar check-in';
+  const m = document.getElementById('msgCheckin');
+  m.className = ok ? 'msg ok' : 'msg err';
+  m.textContent = ok ? '✓ Check-in salvo!' : 'Erro ao salvar. Tente de novo.';
+  setTimeout(function(){ m.className='msg'; }, 2500);
+  renderHoje(); renderCheckin();
+}
+
+// cria ou atualiza o check-in de hoje (1 por dia, garantido pelo banco)
+async function upsertCheckin(campos){
+  const registro = Object.assign(
+    { treinou:false, alimentacao:false, agua:false },
+    checkinHoje || {},
+    campos,
+    { ficha_id: ficha.id, cliente_id: ficha.cliente_id, data: hojeISO() }
+  );
+  delete registro.id; delete registro.criado_em;
+
+  if(!navigator.onLine){
+    filaOffline('checkins', registro);
+    checkinHoje = Object.assign({}, registro);
+    const j = checkins.findIndex(function(c){ return c.data === hojeISO(); });
+    if(j >= 0) checkins[j] = checkinHoje; else checkins.unshift(checkinHoje);
+    return true;
+  }
+
+  const { data, error } = await db.from('checkins')
+    .upsert(registro, { onConflict:'ficha_id,data' }).select().limit(1);
+  if(error){
+    console.error('checkin:', error);
+    filaOffline('checkins', registro);   // guarda para tentar depois
+    return false;
+  }
+
+  checkinHoje = data[0];
+  const ix = checkins.findIndex(function(c){ return c.data === hojeISO(); });
+  if(ix >= 0) checkins[ix] = data[0]; else checkins.unshift(data[0]);
+  return true;
+}
+
+/* ================= TELA PERFIL ================= */
+function renderDados(){
+  document.getElementById('dWhats').value  = ficha.whatsapp || '';
+  document.getElementById('dProf').value   = ficha.profissao || '';
+  document.getElementById('dPeso').value   = ficha.peso_kg || '';
+  document.getElementById('dAltura').value = ficha.altura_m || '';
+
+  const ro = [
+    ['Nome', ficha.nome_completo], ['E-mail', ficha.email],
+    ['Idade', ficha.idade ? ficha.idade + ' anos' : '—'],
+    ['Gênero', ficha.genero], ['Objetivo', ficha.objetivo_principal],
+    ['Local de treino', ficha.local_treino],
+    ['IMC', ficha.imc || '—']
+  ];
+  document.getElementById('dadosRO').innerHTML = ro.map(function(p){
+    return '<div class="dado-ro"><span class="k">' + p[0] + '</span><span class="v">' + esc(p[1] || '—') + '</span></div>';
+  }).join('');
+}
+
+async function salvarDados(){
+  const btn = document.getElementById('btnSalvarDados');
+  btn.disabled = true; btn.textContent = 'Salvando...';
+  const mud = {
+    whatsapp:  document.getElementById('dWhats').value.trim(),
+    profissao: document.getElementById('dProf').value.trim(),
+    peso_kg:   parseFloat(document.getElementById('dPeso').value) || null,
+    altura_m:  parseFloat(document.getElementById('dAltura').value) || null
+  };
+  const { error } = await db.from('fichas_cadastrais').update(mud).eq('id', ficha.id);
+  btn.disabled = false; btn.textContent = 'Salvar alterações';
+  const m = document.getElementById('msgDados');
+  if(error){ console.error('dados:', error); m.className='msg err'; m.textContent='Erro ao salvar.'; return; }
+  Object.assign(ficha, mud);
+  m.className='msg ok'; m.textContent='✓ Dados atualizados!';
+  setTimeout(function(){ m.className='msg'; }, 2500);
+  renderHoje(); renderCheckin();
+}
+
+async function solicitar(tipo){
+  const b1 = document.getElementById('btnSolTreino'), b2 = document.getElementById('btnSolAcomp');
+  b1.disabled = b2.disabled = true;
+  const m = document.getElementById('msgSol');
+  const { error } = await db.from('solicitacoes').insert({
+    ficha_id: ficha.id, cliente_id: ficha.cliente_id, tipo,
+    mensagem: tipo==='novo_treino' ? 'Aluno solicitou um novo treino' : 'Aluno solicitou dia de acompanhamento presencial'
+  });
+  b1.disabled = b2.disabled = false;
+  if(error){ console.error('solicitacao:', error); m.className='msg err'; m.textContent='Erro ao enviar. Tente de novo.'; return; }
+  m.className='msg ok';
+  m.textContent = tipo==='novo_treino' ? '✓ Pedido de novo treino enviado!' : '✓ Pedido de acompanhamento enviado!';
+  setTimeout(function(){ m.className='msg'; }, 3000);
+  renderSolicitacoes();
+}
+
+async function renderSolicitacoes(){
+  const { data } = await db.from('solicitacoes')
+    .select('*').eq('ficha_id', ficha.id).order('criado_em',{ ascending:false }).limit(5);
+  const box = document.getElementById('minhasSolicitacoes');
+  if(!data || !data.length){ box.innerHTML=''; return; }
+  box.innerHTML = '<div style="font-size:.77rem;color:var(--ink-soft);margin-bottom:4px">Seus pedidos recentes:</div>' +
+    data.map(function(s){
+      const cor = s.status==='aberta' ? '#9A5A12' : '#5C7414';
+      return '<div class="hist-linha"><span>' +
+        (s.tipo==='novo_treino' ? '🔄 Novo treino' : '📅 Acompanhamento') +
+        ' <small style="color:var(--ink-soft)">' + fmtDia(s.criado_em) + '</small></span>' +
+        '<span style="font-size:.77rem;color:' + cor + ';font-weight:700">' +
+        (s.status==='aberta' ? 'Aguardando' : 'Resolvido') + '</span></div>';
+    }).join('');
+}
+
+/* ================= GRÁFICO DE PESO (SVG puro) ================= */
+function graficoPeso(pontos){
+  if(!pontos || pontos.length < 2){
+    return '<div class="vazio">Registre seu peso no check-in por alguns dias para ver o gráfico.</div>';
+  }
+  const p = pontos.slice().sort(function(a,b){ return a.data < b.data ? -1 : 1; });
+  const cor = getComputedStyle(document.documentElement).getPropertyValue('--primaria').trim() || '#39556A';
+  const W=300, H=110, PAD=8;
+  const vals = p.map(function(x){ return x.peso; });
+  const min = Math.min.apply(null, vals), max = Math.max.apply(null, vals);
+  const range = (max-min) || 1;
+  const px = function(i){ return PAD + (i*(W-2*PAD))/(p.length-1); };
+  const py = function(v){ return PAD + (H-2*PAD)*(1-(v-min)/range); };
+
+  const linha = p.map(function(x,i){ return (i?'L':'M') + px(i).toFixed(1) + ',' + py(x.peso).toFixed(1); }).join(' ');
+  const area  = linha + ' L' + px(p.length-1).toFixed(1) + ',' + H + ' L' + px(0).toFixed(1) + ',' + H + ' Z';
+  const bolas = p.map(function(x,i){ return '<circle cx="'+px(i).toFixed(1)+'" cy="'+py(x.peso).toFixed(1)+'" r="3" fill="'+cor+'"/>'; }).join('');
+
+  const ini=p[0], fim=p[p.length-1];
+  const dif=(fim.peso-ini.peso).toFixed(1);
+  const corDif = dif<0 ? '#5C7414' : (dif>0 ? '#9A5A12' : 'inherit');
+
+  return '<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:auto;display:block">' +
+    '<path d="'+area+'" fill="'+cor+'" opacity=".12"/>' +
+    '<path d="'+linha+'" fill="none" stroke="'+cor+'" stroke-width="2.5" stroke-linejoin="round"/>' +
+    bolas + '</svg>' +
+    '<div class="graf-stats">' +
+      '<div><b>'+ini.peso+' kg</b><span>'+fmtDia(ini.data)+'</span></div>' +
+      '<div><b>'+fim.peso+' kg</b><span>'+fmtDia(fim.data)+'</span></div>' +
+      '<div><b style="color:'+corDif+'">'+(dif>0?'+':'')+dif+' kg</b><span>variação</span></div>' +
+    '</div>';
+}
+
+/* ================= MODO OFFLINE ================= */
+// Guarda no aparelho o que não deu para enviar e reenvia quando a rede voltar.
+const FILA = 'fila_pendente_v1';
+
+function filaOffline(tabela, registro){
+  try{
+    const f = JSON.parse(localStorage.getItem(FILA) || '[]');
+    f.push({ tabela: tabela, registro: registro, quando: Date.now() });
+    localStorage.setItem(FILA, JSON.stringify(f));
+    mostrarBarra('pendente');
+  }catch(e){ console.warn('fila:', e); }
+}
+
+async function enviarFila(){
+  let f;
+  try { f = JSON.parse(localStorage.getItem(FILA) || '[]'); } catch(e){ return; }
+  if(!f.length || !navigator.onLine) return;
+
+  const resta = [];
+  for(const item of f){
+    const conflito = item.tabela === 'checkins' ? 'ficha_id,data' : 'ficha_id,treino_item_id,data';
+    const { error } = await db.from(item.tabela).upsert(item.registro, { onConflict: conflito });
+    if(error){ console.warn('reenvio falhou:', error.message); resta.push(item); }
+  }
+  localStorage.setItem(FILA, JSON.stringify(resta));
+  if(!resta.length){ mostrarBarra(null); }
+}
+
+function mostrarBarra(modo){
+  const b = document.getElementById('offlineBar');
+  if(!b) return;
+  if(modo === 'offline'){
+    b.textContent = 'Sem conexão — seus registros ficam salvos no aparelho';
+    b.className = 'offline-bar on';
+  } else if(modo === 'pendente'){
+    let n = 0; try{ n = JSON.parse(localStorage.getItem(FILA)||'[]').length; }catch(e){}
+    if(!n){ b.className='offline-bar'; return; }
+    b.textContent = n + ' registro(s) aguardando envio';
+    b.className = 'offline-bar pend-bar on';
+  } else {
+    b.className = 'offline-bar';
+  }
+}
+
+window.addEventListener('online',  function(){ mostrarBarra(null); enviarFila().then(function(){ if(ficha) iniciar(); }); });
+window.addEventListener('offline', function(){ mostrarBarra('offline'); });
+
+/* ================= NAVEGAÇÃO ================= */
+function irPara(tela){
+  ['Hoje','Treino','Checkin','Dados'].forEach(function(t){
+    document.getElementById('tela'+t).classList.toggle('oculta', t!==tela);
+    document.getElementById('nav'+t).classList.toggle('on', t===tela);
+  });
+  window.scrollTo(0,0);
+}
+
+/* ================= START ================= */
+// registra o service worker (faz o app abrir offline e ser instalável)
+if('serviceWorker' in navigator){
+  window.addEventListener('load', function(){
+    navigator.serviceWorker.register('sw.js').catch(function(e){ console.warn('sw:', e); });
+  });
+}
+
+(async function(){
+  if(!navigator.onLine) mostrarBarra('offline'); else mostrarBarra('pendente');
+  const { data:{ session } } = await db.auth.getSession();
+  if(session) await iniciar();
+  else boot.classList.add('sumiu');
+})();
+</script>
+</body>
+</html>
