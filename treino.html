@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Montar Treino</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --primaria:#39556A; --escura:#2C4356; --destaque:#BEDA49;
+    --bg:#F4F6F3; --ink:#22333F; --err:#C4321F;
+    --card:#FFFFFF; --ink-soft:#5C7183; --line:#DDE3E0; --radius:14px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:"Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif;background:var(--bg);color:var(--ink);line-height:1.5;min-height:100vh}
+  .wrap{max-width:960px;margin:0 auto;padding:0 20px;width:100%}
+
+  /* boot */
+  #boot{position:fixed;inset:0;background:var(--bg);z-index:99;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px}
+  #boot.sumiu{display:none}
+  .spinner{width:34px;height:34px;border:3px solid var(--line);border-top-color:var(--primaria);border-radius:50%;animation:gira .8s linear infinite}
+  @keyframes gira{to{transform:rotate(360deg)}}
+
+  header{background:var(--escura);color:#F4F6F3;padding:18px 0}
+  .header-flex{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap}
+  .voltar{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:#F4F6F3;padding:8px 15px;border-radius:999px;font-size:.85rem;font-weight:700;cursor:pointer;text-decoration:none}
+  .voltar:hover{background:rgba(255,255,255,.22)}
+  header h1{font-size:1.15rem;font-weight:800}
+  header .alu{font-size:.82rem;color:rgba(244,246,243,.75);margin-top:2px}
+
+  main{padding:24px 0 60px}
+
+  /* lista de treinos existentes */
+  .sec-titulo{font-size:.78rem;text-transform:uppercase;letter-spacing:.12em;color:var(--primaria);font-weight:800;margin:0 0 12px}
+  .treino-card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+  .treino-card .info{font-size:.9rem}
+  .treino-card .info b{font-weight:700}
+  .treino-card .meta{font-size:.8rem;color:var(--ink-soft);margin-top:2px}
+  .badge{font-size:.72rem;font-weight:700;padding:4px 10px;border-radius:999px}
+  .b-rasc{background:#FFF0E0;color:#9A5A12}
+  .b-val{background:#EDF5D4;color:#5C7414}
+  .b-venc{background:#FBE7E3;color:var(--err)}
+  .card-acoes{display:flex;gap:8px;flex-wrap:wrap}
+  .mini{padding:7px 13px;border-radius:8px;font-size:.82rem;font-weight:700;cursor:pointer;border:1.5px solid var(--line);background:#fff;color:var(--ink);text-decoration:none}
+  .mini.prim{background:var(--primaria);color:#fff;border-color:var(--primaria)}
+
+  .btn-novo{width:100%;padding:15px;font-size:1rem;font-weight:800;color:var(--escura);background:var(--destaque);border:none;border-radius:12px;cursor:pointer;margin:8px 0 26px;letter-spacing:.02em}
+  .btn-novo:hover{filter:brightness(1.05)}
+
+  /* editor */
+  #editor{display:none}
+  #editor.ativo{display:block}
+  .editor-topo{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;margin-bottom:16px;display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+  .campo label{display:block;font-size:.78rem;font-weight:700;color:var(--ink-soft);margin-bottom:5px}
+  .campo input,.campo select{width:100%;padding:9px 11px;font-size:.92rem;border:1.5px solid var(--line);border-radius:8px;background:#FBFAF7;color:var(--ink)}
+  .campo input:focus,.campo select:focus{outline:none;border-color:var(--primaria);box-shadow:0 0 0 3px rgba(57,85,106,.14)}
+
+  /* abas de dias */
+  .dias-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+  .dia-tab{padding:9px 16px;border-radius:10px;font-weight:800;font-size:.9rem;border:1.5px solid var(--line);background:#fff;color:var(--ink-soft);cursor:pointer}
+  .dia-tab.on{background:var(--primaria);border-color:var(--primaria);color:#fff}
+  .dia-tab .qtd{font-size:.7rem;opacity:.8;margin-left:4px}
+
+  .dia-painel{display:none}
+  .dia-painel.on{display:block}
+  .dia-nome-wrap{margin-bottom:12px}
+  .dia-nome-wrap input{width:100%;padding:10px 12px;font-size:.95rem;font-weight:600;border:1.5px solid var(--line);border-radius:8px;background:#fff}
+
+  /* linha de exercício */
+  .ex-linha{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:10px}
+  .ex-topo{display:flex;gap:8px;align-items:center;margin-bottom:10px}
+  .ex-topo select{flex:1;padding:9px 11px;font-size:.9rem;border:1.5px solid var(--line);border-radius:8px;background:#FBFAF7;color:var(--ink)}
+  .ex-del{background:#FBE7E3;color:var(--err);border:none;width:34px;height:34px;border-radius:8px;font-size:1rem;cursor:pointer;flex-shrink:0}
+  .ex-campos{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+  .ex-campos .c label{display:block;font-size:.68rem;font-weight:700;color:var(--ink-soft);margin-bottom:3px;text-transform:uppercase;letter-spacing:.04em}
+  .ex-campos .c input{width:100%;padding:8px;font-size:.9rem;border:1.5px solid var(--line);border-radius:7px;background:#fff;color:var(--ink);text-align:center}
+  .ex-campos .c input:focus{outline:none;border-color:var(--primaria)}
+  .ex-video{margin-top:8px}
+  .ex-video a{font-size:.78rem;color:var(--primaria);text-decoration:none;font-weight:600}
+
+  .btn-add-ex{width:100%;padding:11px;border:1.5px dashed var(--primaria);background:transparent;color:var(--primaria);border-radius:10px;font-weight:700;font-size:.88rem;cursor:pointer;margin-top:4px}
+  .btn-add-ex:hover{background:rgba(57,85,106,.05)}
+
+  .vazio-dia{text-align:center;padding:24px;color:var(--ink-soft);font-size:.88rem}
+
+  .rodape-acoes{position:sticky;bottom:0;background:var(--bg);border-top:1px solid var(--line);padding:14px 0;margin-top:20px;display:flex;gap:10px;flex-wrap:wrap}
+  .rodape-acoes .wrap-in{max-width:960px;margin:0 auto;padding:0 20px;width:100%;display:flex;gap:10px;flex-wrap:wrap}
+  .btn-salvar{flex:1;min-width:140px;padding:14px;font-size:.98rem;font-weight:800;border:none;border-radius:10px;cursor:pointer;background:var(--primaria);color:#fff}
+  .btn-validar{flex:1;min-width:140px;padding:14px;font-size:.98rem;font-weight:800;border:none;border-radius:10px;cursor:pointer;background:var(--destaque);color:var(--escura)}
+  .btn-salvar:disabled,.btn-validar:disabled{opacity:.6;cursor:wait}
+
+  .aviso{padding:12px 14px;border-radius:10px;font-size:.88rem;margin-bottom:14px;display:none}
+  .aviso.mostrar{display:block}
+  .aviso.ok{background:#EDF5D4;color:#5C7414;border:1px solid var(--destaque)}
+  .aviso.erro{background:#FBE7E3;color:var(--err);border:1px solid var(--err)}
+
+  @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+
+<div id="boot"><div class="spinner"></div><div>Carregando...</div></div>
+
+<header>
+  <div class="wrap header-flex">
+    <div>
+      <h1 id="hTitulo">Treinos</h1>
+      <div class="alu" id="hAluno">—</div>
+    </div>
+    <a class="voltar" href="painel.html">← Voltar ao painel</a>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- LISTA DE TREINOS -->
+  <div id="listaView">
+    <p class="sec-titulo">Treinos deste aluno</p>
+    <div id="listaTreinos"></div>
+    <button class="btn-novo" id="btnNovo">＋ Criar novo treino mensal</button>
+  </div>
+
+  <!-- EDITOR -->
+  <div id="editor">
+    <div class="aviso" id="aviso"></div>
+
+    <div class="editor-topo">
+      <div class="campo">
+        <label>Título</label>
+        <input type="text" id="edTitulo" value="Treino mensal">
+      </div>
+      <div class="campo">
+        <label>Peso atual do aluno (kg)</label>
+        <input type="number" id="edPeso" step="0.1" placeholder="Ex: 82.5">
+      </div>
+      <div class="campo">
+        <label>Objetivo</label>
+        <input type="text" id="edObjetivo" placeholder="Ex: Hipertrofia">
+      </div>
+    </div>
+
+    <div class="dias-tabs" id="diasTabs"></div>
+    <div id="diasPaineis"></div>
+  </div>
+</main>
+
+<!-- rodapé fixo do editor -->
+<div class="rodape-acoes" id="rodapeAcoes" style="display:none">
+  <div class="wrap-in">
+    <button class="btn-salvar" id="btnSalvar">Salvar rascunho</button>
+    <button class="btn-validar" id="btnValidar">Validar treino ✓</button>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL      = "https://sloamqnvbstpihfzsfqk.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_tyCGNNaJeiD39y9fVPBmGg_nC2Oonev";
+const DIAS = ['A','B','C','D','E','F'];
+
+const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+let FICHA_ID   = new URLSearchParams(location.search).get('ficha');
+let ficha      = null;    // dados do aluno
+let exercicios = [];      // banco de 82
+let porGrupo   = {};      // {grupo: [ex,...]}
+let treinoAtual = null;   // treino em edição
+let grade = {};           // { A:{nome:'', itens:[...]}, B:{...}, ... }
+let diaAtivo = 'A';
+
+const esc = s => String(s ?? '').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const boot = document.getElementById('boot');
+
+
+/* ================= INICIALIZAÇÃO ================= */
+(async () => {
+  const { data:{ session } } = await db.auth.getSession();
+  if (!session) { location.href = 'painel.html'; return; }
+  if (!FICHA_ID) { alert('Aluno não informado.'); location.href='painel.html'; return; }
+
+  // aluno (o RLS garante que só vem se for do cliente logado)
+  const { data: fichas, error: e1 } = await db
+    .from('fichas_cadastrais').select('*').eq('id', FICHA_ID).limit(1);
+  if (e1 || !fichas || !fichas.length) { alert('Aluno não encontrado.'); location.href='painel.html'; return; }
+  ficha = fichas[0];
+  document.getElementById('hAluno').textContent = ficha.nome_completo;
+
+  // banco de exercícios
+  const { data: exs } = await db.from('exercicios').select('*').order('grupo_muscular').order('nome');
+  exercicios = exs || [];
+  porGrupo = {};
+  exercicios.forEach(e => { (porGrupo[e.grupo_muscular] ||= []).push(e); });
+
+  await carregarTreinos();
+  boot.classList.add('sumiu');
+})();
+
+
+/* ================= LISTA DE TREINOS ================= */
+async function carregarTreinos() {
+  const { data } = await db.from('treinos')
+    .select('*').eq('ficha_id', FICHA_ID).order('criado_em', { ascending:false });
+
+  const box = document.getElementById('listaTreinos');
+  if (!data || !data.length) {
+    box.innerHTML = '<p style="color:var(--ink-soft);font-size:.9rem;padding:8px 0">Nenhum treino ainda. Crie o primeiro abaixo.</p>';
+    return;
+  }
+  const hoje = new Date().toISOString().slice(0,10);
+  box.innerHTML = data.map(t => {
+    let badge = '<span class="badge b-rasc">Rascunho</span>';
+    if (t.status === 'validado') {
+      const vencido = t.vence_em && t.vence_em < hoje;
+      badge = vencido
+        ? '<span class="badge b-venc">Vencido — renovar</span>'
+        : '<span class="badge b-val">Validado</span>';
+    }
+    const venc = t.vence_em ? `Vence em ${fmt(t.vence_em)}` : 'Sem validade (rascunho)';
+    return `
+      <div class="treino-card">
+        <div class="info">
+          <b>${esc(t.titulo)}</b> ${badge}
+          <div class="meta">Criado em ${fmt(t.criado_em)} · ${venc}</div>
+        </div>
+        <div class="card-acoes">
+          <button class="mini prim" onclick="editarTreino('${t.id}')">Abrir</button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function fmt(d){ if(!d) return '—'; const [a,m,dia]=String(d).slice(0,10).split('-'); return `${dia}/${m}/${a}`; }
+
+
+/* ================= CRIAR / EDITAR ================= */
+document.getElementById('btnNovo').addEventListener('click', () => {
+  treinoAtual = null;
+  grade = {};
+  DIAS.forEach(d => grade[d] = { nome:'', itens:[] });
+  document.getElementById('edTitulo').value = 'Treino mensal';
+  document.getElementById('edPeso').value = ficha.peso_kg || '';
+  document.getElementById('edObjetivo').value = ficha.objetivo_principal || '';
+  abrirEditor();
+});
+
+window.editarTreino = async (id) => {
+  boot.classList.remove('sumiu');
+  const { data: t } = await db.from('treinos').select('*').eq('id', id).limit(1);
+  treinoAtual = t[0];
+  const { data: itens } = await db.from('treino_itens')
+    .select('*').eq('treino_id', id).order('dia').order('ordem');
+
+  grade = {};
+  DIAS.forEach(d => grade[d] = { nome:'', itens:[] });
+  // usamos só semana 1 (as 4 são iguais); nome do dia guardado na observacao do 1o item? não —
+  // guardamos o nome do dia no próprio registro via um item especial? Simplificamos:
+  (itens||[]).filter(i => i.semana === 1).forEach(i => {
+    grade[i.dia].itens.push({
+      exercicio_id: i.exercicio_id, nome: i.exercicio_nome, video: i.video_url,
+      series: i.series ?? '', reps: i.repeticoes ?? '', carga: i.carga_kg ?? '', descanso: i.descanso_seg ?? ''
+    });
+    if (i.observacao && i.observacao.startsWith('§dia:')) grade[i.dia].nome = i.observacao.slice(5);
+  });
+
+  document.getElementById('edTitulo').value = treinoAtual.titulo || 'Treino mensal';
+  document.getElementById('edPeso').value = treinoAtual.peso_inicial || ficha.peso_kg || '';
+  document.getElementById('edObjetivo').value = treinoAtual.objetivo || '';
+  boot.classList.add('sumiu');
+  abrirEditor();
+};
+
+function abrirEditor() {
+  document.getElementById('listaView').style.display = 'none';
+  document.getElementById('editor').classList.add('ativo');
+  document.getElementById('rodapeAcoes').style.display = 'block';
+  document.getElementById('hTitulo').textContent = 'Montando treino';
+  diaAtivo = 'A';
+  renderTabs();
+  renderDia();
+}
+
+/* ---- abas dos dias ---- */
+function renderTabs() {
+  const tabs = document.getElementById('diasTabs');
+  tabs.innerHTML = DIAS.map(d => {
+    const n = grade[d].itens.length;
+    return `<button class="dia-tab ${d===diaAtivo?'on':''}" onclick="trocarDia('${d}')">
+      Treino ${d}${n?`<span class="qtd">${n}</span>`:''}</button>`;
+  }).join('');
+}
+window.trocarDia = (d) => { salvarCamposVisiveis(); diaAtivo = d; renderTabs(); renderDia(); };
+
+/* ---- painel do dia ativo ---- */
+function renderDia() {
+  const g = grade[diaAtivo];
+  const paineis = document.getElementById('diasPaineis');
+
+  const opcoes = Object.keys(porGrupo).sort().map(grupo =>
+    `<optgroup label="${esc(grupo)}">` +
+    porGrupo[grupo].map(e => `<option value="${e.id}">${esc(e.nome)}</option>`).join('') +
+    `</optgroup>`
+  ).join('');
+
+  const linhas = g.itens.map((it, idx) => `
+    <div class="ex-linha" data-idx="${idx}">
+      <div class="ex-topo">
+        <select onchange="trocarEx(${idx}, this.value)">
+          <option value="">— escolher exercício —</option>
+          ${opcoes}
+        </select>
+        <button class="ex-del" onclick="removerEx(${idx})">✕</button>
+      </div>
+      <div class="ex-campos">
+        <div class="c"><label>Séries</label><input type="number" data-f="series" value="${esc(it.series)}" placeholder="3"></div>
+        <div class="c"><label>Reps</label><input type="text" data-f="reps" value="${esc(it.reps)}" placeholder="8-12"></div>
+        <div class="c"><label>Carga kg</label><input type="number" step="0.5" data-f="carga" value="${esc(it.carga)}" placeholder="—"></div>
+        <div class="c"><label>Descanso s</label><input type="number" data-f="descanso" value="${esc(it.descanso)}" placeholder="60"></div>
+      </div>
+      ${it.video ? `<div class="ex-video"><a href="${esc(it.video)}" target="_blank" rel="noopener">▶ ver vídeo do exercício</a></div>` : ''}
+    </div>`).join('');
+
+  paineis.innerHTML = `
+    <div class="dia-painel on">
+      <div class="dia-nome-wrap">
+        <input type="text" id="nomeDia" placeholder="Nome do treino ${diaAtivo} (ex: Peito e Tríceps)" value="${esc(g.nome)}">
+      </div>
+      ${linhas || '<div class="vazio-dia">Nenhum exercício neste dia ainda.</div>'}
+      <button class="btn-add-ex" onclick="addEx()">＋ Adicionar exercício</button>
+    </div>`;
+
+  // marcar o select com o exercício já escolhido
+  g.itens.forEach((it, idx) => {
+    if (it.exercicio_id) {
+      const sel = paineis.querySelector(`.ex-linha[data-idx="${idx}"] select`);
+      if (sel) sel.value = it.exercicio_id;
+    }
+  });
+}
+
+window.addEx = () => { salvarCamposVisiveis(); grade[diaAtivo].itens.push({exercicio_id:'',nome:'',video:'',series:'',reps:'',carga:'',descanso:''}); renderDia(); renderTabs(); };
+window.removerEx = (idx) => { salvarCamposVisiveis(); grade[diaAtivo].itens.splice(idx,1); renderDia(); renderTabs(); };
+window.trocarEx = (idx, exId) => {
+  salvarCamposVisiveis();
+  const ex = exercicios.find(e => e.id === exId);
+  grade[diaAtivo].itens[idx].exercicio_id = exId;
+  grade[diaAtivo].itens[idx].nome = ex ? ex.nome : '';
+  grade[diaAtivo].itens[idx].video = ex ? ex.video_url : '';
+  renderDia();
+};
+
+/* lê os inputs visíveis de volta pro objeto grade (não perder ao trocar de dia) */
+function salvarCamposVisiveis() {
+  const nomeDia = document.getElementById('nomeDia');
+  if (nomeDia) grade[diaAtivo].nome = nomeDia.value;
+  document.querySelectorAll('#diasPaineis .ex-linha').forEach(el => {
+    const idx = +el.dataset.idx;
+    if (!grade[diaAtivo].itens[idx]) return;
+    el.querySelectorAll('[data-f]').forEach(inp => {
+      grade[diaAtivo].itens[idx][inp.dataset.f] = inp.value;
+    });
+  });
+}
+
+
+/* ================= SALVAR / VALIDAR ================= */
+function aviso(txt, tipo) {
+  const a = document.getElementById('aviso');
+  a.className = 'aviso mostrar ' + tipo;
+  a.textContent = txt;
+  a.scrollIntoView({behavior:'smooth',block:'center'});
+}
+
+async function persistir(validar) {
+  salvarCamposVisiveis();
+
+  // validação mínima: pelo menos 1 exercício com nome no treino todo
+  const temAlgo = DIAS.some(d => grade[d].itens.some(i => i.nome));
+  if (!temAlgo) { aviso('Adicione pelo menos um exercício antes de salvar.', 'erro'); return; }
+
+  const btnS = document.getElementById('btnSalvar');
+  const btnV = document.getElementById('btnValidar');
+  btnS.disabled = btnV.disabled = true;
+
+  const hoje = new Date();
+  const cabecalho = {
+    ficha_id: FICHA_ID,
+    cliente_id: ficha.cliente_id,
+    titulo: document.getElementById('edTitulo').value.trim() || 'Treino mensal',
+    peso_inicial: parseFloat(document.getElementById('edPeso').value) || null,
+    objetivo: document.getElementById('edObjetivo').value.trim() || null,
+    status: validar ? 'validado' : 'rascunho'
+  };
+  if (validar) {
+    cabecalho.validado_em = hoje.toISOString();
+    const venc = new Date(hoje); venc.setDate(venc.getDate() + 30);
+    cabecalho.vence_em = venc.toISOString().slice(0,10);
+  }
+
+  try {
+    let treinoId;
+    if (treinoAtual) {
+      treinoId = treinoAtual.id;
+      const { error } = await db.from('treinos').update(cabecalho).eq('id', treinoId);
+      if (error) throw error;
+      await db.from('treino_itens').delete().eq('treino_id', treinoId);  // regrava do zero
+    } else {
+      const { data, error } = await db.from('treinos').insert(cabecalho).select('id').limit(1);
+      if (error) throw error;
+      treinoId = data[0].id;
+      treinoAtual = { id: treinoId };
+    }
+
+    // monta os itens — como as 4 semanas são iguais, gravamos semana 1
+    const itens = [];
+    DIAS.forEach(d => {
+      grade[d].itens.forEach((it, ordem) => {
+        if (!it.nome) return;
+        itens.push({
+          treino_id: treinoId, semana: 1, dia: d, ordem: ordem+1,
+          exercicio_id: it.exercicio_id || null,
+          exercicio_nome: it.nome,
+          video_url: it.video || null,
+          series: parseInt(it.series) || null,
+          repeticoes: (it.reps||'').toString().trim() || null,
+          carga_kg: parseFloat(it.carga) || null,
+          descanso_seg: parseInt(it.descanso) || null,
+          // guardamos o nome do dia no 1o item de cada dia
+          observacao: (ordem===0 && grade[d].nome) ? '§dia:'+grade[d].nome : null
+        });
+      });
+    });
+    if (itens.length) {
+      const { error } = await db.from('treino_itens').insert(itens);
+      if (error) throw error;
+    }
+
+    aviso(validar ? 'Treino validado! Vence em 30 dias.' : 'Rascunho salvo.', 'ok');
+    setTimeout(() => { location.href = 'treino.html?ficha=' + FICHA_ID; }, 900);
+  } catch (err) {
+    console.error(err);
+    aviso('Erro ao salvar: ' + (err.message||'tente de novo'), 'erro');
+    btnS.disabled = btnV.disabled = false;
+  }
+}
+
+document.getElementById('btnSalvar').addEventListener('click', () => persistir(false));
+document.getElementById('btnValidar').addEventListener('click', () => {
+  if (confirm('Validar o treino? Isso marca a data e começa a contar os 30 dias.')) persistir(true);
+});
+</script>
+</body>
+</html>
