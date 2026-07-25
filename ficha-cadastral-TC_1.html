@@ -1,0 +1,880 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ficha Cadastral — Anamnese</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    /* Estas 6 variáveis são SOBRESCRITAS pelo tema do cliente no JS.
+       Os valores abaixo são só o fallback enquanto carrega. */
+    --primaria:#39556A;
+    --escura:#2C4356;
+    --destaque:#BEDA49;
+    --bg:#F4F6F3;
+    --ink:#22333F;
+    --err:#C4321F;
+
+    --card:#FFFFFF;
+    --ink-soft:#5C7183;
+    --line:#DDE3E0;
+    --radius:14px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family:"Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif;
+    background:var(--bg);color:var(--ink);line-height:1.55;padding-bottom:80px;
+  }
+  .wrap{max-width:760px;margin:0 auto}
+
+  /* ===== Tela de carregamento / erro ===== */
+  #boot{
+    position:fixed;inset:0;background:var(--bg);z-index:99;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:14px;padding:30px;text-align:center;
+  }
+  #boot.sumiu{display:none}
+  .spinner{
+    width:34px;height:34px;border:3px solid var(--line);
+    border-top-color:var(--primaria);border-radius:50%;
+    animation:gira .8s linear infinite;
+  }
+  @keyframes gira{to{transform:rotate(360deg)}}
+  #boot .txt{font-size:.92rem;color:var(--ink-soft)}
+  #boot.falhou .spinner{display:none}
+  #boot .erro-box{max-width:420px}
+  #boot .erro-box h2{font-size:1.1rem;margin-bottom:8px;color:var(--err)}
+  #boot .erro-box p{font-size:.9rem;color:var(--ink-soft)}
+
+  /* ===== Header ===== */
+  header{background:var(--escura);color:#F4F6F3;padding:26px 20px 34px}
+  .header-flex{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  #logoCard{
+    background:#fff;border-radius:12px;padding:8px 14px;display:none;
+    box-shadow:0 2px 10px rgba(0,0,0,.18);
+  }
+  #logoCard.mostrar{display:block}
+  #logoSolto{display:none}
+  #logoSolto.mostrar{display:block}
+  header img{height:48px;width:auto;display:block}
+  header .tag{
+    display:inline-block;font-size:.68rem;letter-spacing:.18em;text-transform:uppercase;
+    color:var(--destaque);font-weight:800;margin-bottom:4px;
+  }
+  header h1{font-size:clamp(1.5rem,4vw,2.1rem);font-weight:800;letter-spacing:-.02em;line-height:1.15}
+  header .sub{margin-top:6px;color:rgba(244,246,243,.75);font-size:.92rem;max-width:520px}
+
+  /* ===== Progresso ===== */
+  .progress-shell{position:sticky;top:0;z-index:10;background:var(--bg);border-bottom:1px solid var(--line);padding:10px 20px}
+  .progress-inner{max-width:760px;margin:0 auto;display:flex;align-items:center;gap:12px}
+  .progress-bar{flex:1;height:8px;background:var(--line);border-radius:999px;overflow:hidden}
+  .progress-fill{height:100%;width:0%;background:var(--destaque);border-radius:999px;transition:width .3s ease}
+  .progress-label{font-size:.78rem;font-weight:700;color:var(--ink-soft);min-width:46px;text-align:right}
+
+  /* ===== Blocos ===== */
+  main{padding:28px 20px 0}
+  .bloco{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:26px 22px;margin-bottom:22px}
+  .bloco-head{display:flex;align-items:baseline;gap:12px;margin-bottom:20px;border-bottom:2px solid var(--primaria);padding-bottom:12px}
+  .bloco-num{font-size:.72rem;font-weight:800;letter-spacing:.14em;color:var(--primaria);text-transform:uppercase;white-space:nowrap}
+  .bloco-head h2{font-size:1.15rem;font-weight:800;letter-spacing:-.01em}
+
+  .campo{margin-bottom:20px}
+  .campo:last-child{margin-bottom:0}
+  label.q{display:block;font-weight:600;font-size:.95rem;margin-bottom:8px}
+  label.q .req{color:var(--err);margin-left:2px}
+  .hint{font-size:.8rem;color:var(--ink-soft);margin-top:-4px;margin-bottom:8px}
+
+  input[type=text],input[type=email],input[type=tel],input[type=date],input[type=number]{
+    width:100%;padding:12px 14px;font-size:1rem;border:1.5px solid var(--line);
+    border-radius:10px;background:#FBFAF7;color:var(--ink);
+    transition:border-color .15s, box-shadow .15s;
+  }
+  input:focus{outline:none;border-color:var(--primaria);box-shadow:0 0 0 3px rgba(57,85,106,.14)}
+  input.invalido{border-color:var(--err)}
+
+  .opcoes{display:flex;flex-wrap:wrap;gap:10px}
+  .op{position:relative}
+  .op input{position:absolute;opacity:0;inset:0;cursor:pointer}
+  .op span{
+    display:inline-flex;align-items:center;padding:10px 16px;
+    border:1.5px solid var(--line);border-radius:999px;font-size:.92rem;
+    background:#FBFAF7;cursor:pointer;transition:all .15s;user-select:none;
+  }
+  .op input:checked + span{background:var(--primaria);border-color:var(--primaria);color:#fff;font-weight:600}
+  .op input:focus-visible + span{box-shadow:0 0 0 3px rgba(57,85,106,.28)}
+
+  .msg-erro{display:none;color:var(--err);font-size:.8rem;margin-top:6px;font-weight:600}
+  .campo.erro .msg-erro{display:block}
+  .campo.erro .op span{border-color:var(--err)}
+
+  .consent{display:flex;gap:12px;align-items:flex-start;background:#F0EFE9;border:1px solid var(--line);border-radius:10px;padding:14px}
+  .consent input{width:18px;height:18px;margin-top:2px;accent-color:var(--primaria);flex-shrink:0}
+  .consent p{font-size:.83rem;color:var(--ink-soft)}
+
+  .acao{max-width:760px;margin:6px auto 0}
+  button.enviar{
+    width:100%;padding:16px;font-size:1.05rem;font-weight:800;letter-spacing:.02em;
+    color:var(--escura);background:var(--destaque);border:none;border-radius:12px;cursor:pointer;
+    transition:transform .1s, filter .15s;
+  }
+  button.enviar:hover{filter:brightness(1.06)}
+  button.enviar:active{transform:scale(.99)}
+  button.enviar:disabled{opacity:.6;cursor:wait}
+
+  .status{margin-top:14px;padding:14px;border-radius:10px;font-size:.9rem;display:none}
+  .status.ok{display:block;background:#EDF5D4;color:var(--escura);border:1px solid var(--destaque)}
+  .status.falha{display:block;background:#FBE7E3;color:var(--err);border:1px solid var(--err)}
+
+  /* ===== Tela de sucesso ===== */
+  #sucesso{display:none;padding:60px 20px;text-align:center}
+  #sucesso.mostrar{display:block}
+  #sucesso .check{
+    width:64px;height:64px;border-radius:50%;background:var(--destaque);
+    display:flex;align-items:center;justify-content:center;margin:0 auto 18px;
+    font-size:2rem;color:var(--escura);
+  }
+  #sucesso h2{font-size:1.5rem;font-weight:800;margin-bottom:8px}
+  #sucesso p{color:var(--ink-soft);max-width:420px;margin:0 auto}
+
+  /* ===== Campo condicional ===== */
+  .campo[data-depende]{
+    overflow:hidden;
+    max-height:400px;
+    opacity:1;
+    transition:max-height .3s ease, opacity .2s ease, margin .3s ease;
+  }
+  .campo.oculto{
+    max-height:0 !important;
+    opacity:0 !important;
+    margin-bottom:0 !important;
+    pointer-events:none;
+  }
+
+  @media (prefers-reduced-motion:reduce){*{transition:none !important;animation:none !important}}
+</style>
+</head>
+<body>
+
+<!-- Tela que segura o form até o tema do cliente carregar -->
+<div id="boot">
+  <div class="spinner"></div>
+  <div class="txt">Carregando...</div>
+  <div class="erro-box" id="bootErro" style="display:none"></div>
+</div>
+
+<header>
+  <div class="wrap header-flex">
+    <div id="logoCard"><img id="logoImg1" alt=""></div>
+    <div id="logoSolto"><img id="logoImg2" alt=""></div>
+    <div>
+      <span class="tag" id="tagCliente">Ficha cadastral</span>
+      <h1>Anamnese do aluno</h1>
+      <p class="sub">Preencha com atenção — essas respostas definem como seu treino vai ser montado. Leva menos de 5 minutos.</p>
+    </div>
+  </div>
+</header>
+
+<div class="progress-shell" id="progressShell">
+  <div class="progress-inner">
+    <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+    <div class="progress-label" id="progressLabel">0%</div>
+  </div>
+</div>
+
+<div id="sucesso">
+  <div class="check">✓</div>
+  <h2>Ficha enviada!</h2>
+  <p id="sucessoTxt">Em breve entramos em contato pelo seu WhatsApp.</p>
+</div>
+
+<main class="wrap" id="areaForm">
+<form id="fichaForm" novalidate>
+
+  <!-- ============ BLOCO 1 ============ -->
+  <section class="bloco">
+    <div class="bloco-head"><span class="bloco-num">Bloco 01</span><h2>Dados pessoais</h2></div>
+
+    <div class="campo" data-req>
+      <label class="q" for="nome_completo">1. Nome completo <span class="req">*</span></label>
+      <input type="text" id="nome_completo" name="nome_completo" autocomplete="name">
+      <p class="msg-erro">Informe seu nome completo.</p>
+    </div>
+
+    <div class="campo" data-req>
+      <label class="q" for="data_nascimento">2. Data de nascimento <span class="req">*</span></label>
+      <input type="date" id="data_nascimento" name="data_nascimento">
+      <p class="msg-erro">Informe sua data de nascimento.</p>
+    </div>
+
+    <div class="campo" data-req>
+      <label class="q" for="idade">3. Idade <span class="req">*</span></label>
+      <input type="number" id="idade" name="idade" min="10" max="110" inputmode="numeric">
+      <p class="msg-erro">Informe uma idade entre 10 e 110.</p>
+    </div>
+
+    <div class="campo" data-req>
+      <label class="q" for="profissao">4. Profissão <span class="req">*</span></label>
+      <input type="text" id="profissao" name="profissao">
+      <p class="msg-erro">Informe sua profissão.</p>
+    </div>
+
+    <div class="campo" data-req>
+      <label class="q" for="whatsapp">5. WhatsApp (DDD + número) <span class="req">*</span></label>
+      <input type="tel" id="whatsapp" name="whatsapp" placeholder="(11) 91234-5678" inputmode="tel" autocomplete="tel">
+      <p class="msg-erro">Informe um WhatsApp válido com DDD.</p>
+    </div>
+
+    <div class="campo" data-req>
+      <label class="q" for="email">6. E-mail <span class="req">*</span></label>
+      <input type="email" id="email" name="email" placeholder="voce@email.com" autocomplete="email">
+      <p class="msg-erro">Informe um e-mail válido.</p>
+    </div>
+  </section>
+
+  <!-- ============ BLOCO 2 ============ -->
+  <section class="bloco">
+    <div class="bloco-head"><span class="bloco-num">Bloco 02</span><h2>Histórico de treino</h2></div>
+
+    <div class="campo" data-req data-grupo="ja_treinou">
+      <label class="q">7. Já treinou antes? <span class="req">*</span></label>
+      <div class="opcoes">
+        <label class="op"><input type="radio" name="ja_treinou" value="Sim"><span>Sim</span></label>
+        <label class="op"><input type="radio" name="ja_treinou" value="Não"><span>Não</span></label>
+      </div>
+      <p class="msg-erro">Selecione uma opção.</p>
+    </div>
+
+    <div class="campo oculto" data-req data-depende="ja_treinou" data-valor="Sim" data-se-oculto="Nunca treinou">
+      <label class="q" for="tempo_treino_ou_parado">8. Há quanto tempo treina ou ficou parado(a)? <span class="req">*</span></label>
+      <input type="text" id="tempo_treino_ou_parado" name="tempo_treino_ou_parado" placeholder="Ex: treino há 6 meses / parado há 1 ano">
+      <p class="msg-erro">Preencha este campo.</p>
+    </div>
+
+    <div class="campo" data-req data-grupo="teve_acompanhamento">
+      <label class="q">9. Já teve acompanhamento de personal ou consultoria? <span class="req">*</span></label>
+      <div class="opcoes">
+        <label class="op"><input type="radio" name="teve_acompanhamento" value="Sim"><span>Sim</span></label>
+        <label class="op"><input type="radio" name="teve_acompanhamento" value="Não"><span>Não</span></label>
+      </div>
+      <p class="msg-erro">Selecione uma opção.</p>
+    </div>
+
+    <div class="campo" data-req>
+      <label class="q" for="outra_atividade">10. Pratica outra atividade física? Qual? <span class="req">*</span></label>
+      <input type="text" id="outra_atividade" name="outra_atividade" placeholder="Ex: futebol 1x por semana / não pratico">
+      <p class="msg-erro">Preencha este campo (se não pratica, escreva "não").</p>
+    </div>
+  </section>
+
+  <!-- ============ BLOCO 3 ============ -->
+  <section class="bloco">
+    <div class="bloco-head"><span class="bloco-num">Bloco 03</span><h2>Saúde e histórico clínico</h2></div>
+
+    <div class="campo" data-req>
+      <label class="q" for="lesao_ou_dor">11. Possui alguma lesão ou dor? Onde? <span class="req">*</span></label>
+      <input type="text" id="lesao_ou_dor" name="lesao_ou_dor" placeholder='Se não tiver, escreva "não"'>
+      <p class="msg-erro">Preencha este campo.</p>
+    </div>
+
+    <div class="campo" data-req>
+      <label class="q" for="doenca_diagnosticada">12. Possui alguma doença diagnosticada? (hipertensão, diabetes, etc.) <span class="req">*</span></label>
+      <input type="text" id="doenca_diagnosticada" name="doenca_diagnosticada" placeholder='Se não tiver, escreva "não"'>
+      <p class="msg-erro">Preencha este campo.</p>
+    </div>
+
+    <div class="campo" data-req>
+      <label class="q" for="medicamento_continuo">13. Faz uso de medicamento contínuo? Qual? <span class="req">*</span></label>
+      <input type="text" id="medicamento_continuo" name="medicamento_continuo" placeholder='Se não usa, escreva "não"'>
+      <p class="msg-erro">Preencha este campo.</p>
+    </div>
+
+    <div class="campo" data-req>
+      <label class="q" for="cirurgia">14. Já passou por cirurgia? Qual? <span class="req">*</span></label>
+      <input type="text" id="cirurgia" name="cirurgia" placeholder='Se não, escreva "não"'>
+      <p class="msg-erro">Preencha este campo.</p>
+    </div>
+
+    <div class="campo" data-req>
+      <label class="q" for="dor_ao_movimento">15. Sente dor ao realizar algum movimento? Qual? <span class="req">*</span></label>
+      <input type="text" id="dor_ao_movimento" name="dor_ao_movimento" placeholder='Se não, escreva "não"'>
+      <p class="msg-erro">Preencha este campo.</p>
+    </div>
+
+    <div class="campo" data-req data-grupo="liberacao_medica">
+      <label class="q">16. Possui liberação médica para treinar? <span class="req">*</span></label>
+      <div class="opcoes">
+        <label class="op"><input type="radio" name="liberacao_medica" value="Sim"><span>Sim</span></label>
+        <label class="op"><input type="radio" name="liberacao_medica" value="Não"><span>Não</span></label>
+        <label class="op"><input type="radio" name="liberacao_medica" value="Nunca precisei"><span>Nunca precisei</span></label>
+      </div>
+      <p class="msg-erro">Selecione uma opção.</p>
+    </div>
+  </section>
+
+  <!-- ============ BLOCO 4 ============ -->
+  <section class="bloco">
+    <div class="bloco-head"><span class="bloco-num">Bloco 04</span><h2>Objetivo</h2></div>
+
+    <div class="campo" data-req data-grupo="objetivo_principal">
+      <label class="q">17. Qual seu objetivo principal? <span class="req">*</span></label>
+      <div class="opcoes">
+        <label class="op"><input type="radio" name="objetivo_principal" value="Emagrecimento"><span>Emagrecimento</span></label>
+        <label class="op"><input type="radio" name="objetivo_principal" value="Hipertrofia"><span>Hipertrofia</span></label>
+        <label class="op"><input type="radio" name="objetivo_principal" value="Condicionamento físico"><span>Condicionamento físico</span></label>
+        <label class="op"><input type="radio" name="objetivo_principal" value="Qualidade de vida"><span>Qualidade de vida</span></label>
+        <label class="op"><input type="radio" name="objetivo_principal" value="Estética geral"><span>Estética geral</span></label>
+      </div>
+      <p class="msg-erro">Selecione uma opção.</p>
+    </div>
+
+    <div class="campo" data-req>
+      <label class="q" for="prazo_objetivo">18. Em quanto tempo espera alcançar seu objetivo? <span class="req">*</span></label>
+      <input type="text" id="prazo_objetivo" name="prazo_objetivo" placeholder="Ex: 6 meses">
+      <p class="msg-erro">Preencha este campo.</p>
+    </div>
+
+    <div class="campo" data-req data-grupo="maior_dificuldade">
+      <label class="q">19. Qual sua maior dificuldade hoje? <span class="req">*</span></label>
+      <div class="opcoes">
+        <label class="op"><input type="radio" name="maior_dificuldade" value="Constância"><span>Constância</span></label>
+        <label class="op"><input type="radio" name="maior_dificuldade" value="Alimentação"><span>Alimentação</span></label>
+        <label class="op"><input type="radio" name="maior_dificuldade" value="Motivação"><span>Motivação</span></label>
+        <label class="op"><input type="radio" name="maior_dificuldade" value="Tempo"><span>Tempo</span></label>
+        <label class="op"><input type="radio" name="maior_dificuldade" value="Técnica dos exercícios"><span>Técnica dos exercícios</span></label>
+      </div>
+      <p class="msg-erro">Selecione uma opção.</p>
+    </div>
+  </section>
+
+  <!-- ============ BLOCO 5 ============ -->
+  <section class="bloco">
+    <div class="bloco-head"><span class="bloco-num">Bloco 05</span><h2>Hábitos e rotina</h2></div>
+
+    <div class="campo" data-req data-grupo="alimentacao_atual">
+      <label class="q">20. Como está sua alimentação atualmente? <span class="req">*</span></label>
+      <div class="opcoes">
+        <label class="op"><input type="radio" name="alimentacao_atual" value="Boa"><span>Boa</span></label>
+        <label class="op"><input type="radio" name="alimentacao_atual" value="Regular"><span>Regular</span></label>
+        <label class="op"><input type="radio" name="alimentacao_atual" value="Ruim"><span>Ruim</span></label>
+      </div>
+      <p class="msg-erro">Selecione uma opção.</p>
+    </div>
+
+    <div class="campo" data-req data-grupo="acompanhamento_nutricionista">
+      <label class="q">21. Faz acompanhamento com nutricionista? <span class="req">*</span></label>
+      <div class="opcoes">
+        <label class="op"><input type="radio" name="acompanhamento_nutricionista" value="Sim"><span>Sim</span></label>
+        <label class="op"><input type="radio" name="acompanhamento_nutricionista" value="Não"><span>Não</span></label>
+      </div>
+      <p class="msg-erro">Selecione uma opção.</p>
+    </div>
+
+    <div class="campo" data-req>
+      <label class="q" for="refeicoes_dia">22. Quantas refeições por dia? <span class="req">*</span></label>
+      <input type="number" id="refeicoes_dia" name="refeicoes_dia" min="1" max="12" inputmode="numeric">
+      <p class="msg-erro">Informe um número entre 1 e 12.</p>
+    </div>
+
+    <div class="campo" data-req data-grupo="consome_alcool">
+      <label class="q">23. Consome álcool? <span class="req">*</span></label>
+      <div class="opcoes">
+        <label class="op"><input type="radio" name="consome_alcool" value="Sim"><span>Sim</span></label>
+        <label class="op"><input type="radio" name="consome_alcool" value="Não"><span>Não</span></label>
+        <label class="op"><input type="radio" name="consome_alcool" value="Socialmente"><span>Socialmente</span></label>
+      </div>
+      <p class="msg-erro">Selecione uma opção.</p>
+    </div>
+
+    <div class="campo" data-req data-grupo="fuma">
+      <label class="q">24. Fuma? <span class="req">*</span></label>
+      <div class="opcoes">
+        <label class="op"><input type="radio" name="fuma" value="Sim"><span>Sim</span></label>
+        <label class="op"><input type="radio" name="fuma" value="Não"><span>Não</span></label>
+      </div>
+      <p class="msg-erro">Selecione uma opção.</p>
+    </div>
+
+    <div class="campo" data-req>
+      <label class="q" for="sono_horas">25. Como está seu sono? (horas por noite) <span class="req">*</span></label>
+      <input type="text" id="sono_horas" name="sono_horas" placeholder="Ex: 6 a 7 horas, sono leve">
+      <p class="msg-erro">Preencha este campo.</p>
+    </div>
+
+    <div class="campo" data-req data-grupo="nivel_estresse">
+      <label class="q">26. Nível de estresse diário <span class="req">*</span></label>
+      <div class="opcoes">
+        <label class="op"><input type="radio" name="nivel_estresse" value="Baixo"><span>Baixo</span></label>
+        <label class="op"><input type="radio" name="nivel_estresse" value="Médio"><span>Médio</span></label>
+        <label class="op"><input type="radio" name="nivel_estresse" value="Alto"><span>Alto</span></label>
+      </div>
+      <p class="msg-erro">Selecione uma opção.</p>
+    </div>
+
+    <div class="campo" data-req data-grupo="postura_trabalho">
+      <label class="q">27. Trabalha sentado(a) ou em pé? <span class="req">*</span></label>
+      <div class="opcoes">
+        <label class="op"><input type="radio" name="postura_trabalho" value="Sentado"><span>Sentado</span></label>
+        <label class="op"><input type="radio" name="postura_trabalho" value="Em pé"><span>Em pé</span></label>
+        <label class="op"><input type="radio" name="postura_trabalho" value="Misto"><span>Misto</span></label>
+      </div>
+      <p class="msg-erro">Selecione uma opção.</p>
+    </div>
+  </section>
+
+  <!-- ============ BLOCO 6 ============ -->
+  <section class="bloco">
+    <div class="bloco-head"><span class="bloco-num">Bloco 06</span><h2>Avaliação e estrutura</h2></div>
+
+    <div class="campo" data-req>
+      <label class="q" for="peso_kg">28. Peso atual (kg) <span class="req">*</span></label>
+      <input type="number" id="peso_kg" name="peso_kg" min="20" max="400" step="0.1" inputmode="decimal" placeholder="Ex: 82.5">
+      <p class="msg-erro">Informe um peso entre 20 e 400 kg.</p>
+    </div>
+
+    <div class="campo" data-req>
+      <label class="q" for="altura_m">29. Altura (m) <span class="req">*</span></label>
+      <input type="number" id="altura_m" name="altura_m" min="0.9" max="2.5" step="0.01" inputmode="decimal" placeholder="Ex: 1.75">
+      <p class="msg-erro">Informe a altura em metros (ex: 1.75).</p>
+    </div>
+
+    <div class="campo" data-req data-grupo="fez_avaliacao_fisica">
+      <label class="q">30. Já fez avaliação física? <span class="req">*</span></label>
+      <div class="opcoes">
+        <label class="op"><input type="radio" name="fez_avaliacao_fisica" value="Sim"><span>Sim</span></label>
+        <label class="op"><input type="radio" name="fez_avaliacao_fisica" value="Não"><span>Não</span></label>
+      </div>
+      <p class="msg-erro">Selecione uma opção.</p>
+    </div>
+
+    <div class="campo" data-req data-grupo="enviar_fotos">
+      <label class="q">31. Pretende enviar fotos para acompanhamento? <span class="req">*</span></label>
+      <div class="opcoes">
+        <label class="op"><input type="radio" name="enviar_fotos" value="Sim"><span>Sim</span></label>
+        <label class="op"><input type="radio" name="enviar_fotos" value="Não"><span>Não</span></label>
+      </div>
+      <p class="msg-erro">Selecione uma opção.</p>
+    </div>
+
+    <div class="campo" data-req data-grupo="local_treino">
+      <label class="q">32. Treina em academia, casa ou condomínio? <span class="req">*</span></label>
+      <div class="opcoes">
+        <label class="op"><input type="radio" name="local_treino" value="Academia"><span>Academia</span></label>
+        <label class="op"><input type="radio" name="local_treino" value="Casa"><span>Casa</span></label>
+        <label class="op"><input type="radio" name="local_treino" value="Condomínio"><span>Condomínio</span></label>
+      </div>
+      <p class="msg-erro">Selecione uma opção.</p>
+    </div>
+
+    <div class="campo" data-req>
+      <label class="q" for="equipamentos_disponiveis">33. Quais equipamentos tem disponível? <span class="req">*</span></label>
+      <input type="text" id="equipamentos_disponiveis" name="equipamentos_disponiveis" placeholder="Ex: halteres, elásticos, esteira / academia completa">
+      <p class="msg-erro">Preencha este campo.</p>
+    </div>
+  </section>
+
+  <!-- ============ BLOCO 7 ============ -->
+  <section class="bloco">
+    <div class="bloco-head"><span class="bloco-num">Bloco 07</span><h2>Agenda e modalidade</h2></div>
+
+    <div class="campo" data-req data-grupo="dias_treino" data-check>
+      <label class="q">34. Selecione os dias que consegue treinar <span class="req">*</span></label>
+      <p class="hint">Marque todas que se aplicam.</p>
+      <div class="opcoes">
+        <label class="op"><input type="checkbox" name="dias_treino" value="Segunda"><span>Segunda</span></label>
+        <label class="op"><input type="checkbox" name="dias_treino" value="Terça"><span>Terça</span></label>
+        <label class="op"><input type="checkbox" name="dias_treino" value="Quarta"><span>Quarta</span></label>
+        <label class="op"><input type="checkbox" name="dias_treino" value="Quinta"><span>Quinta</span></label>
+        <label class="op"><input type="checkbox" name="dias_treino" value="Sexta"><span>Sexta</span></label>
+        <label class="op"><input type="checkbox" name="dias_treino" value="Sábado"><span>Sábado</span></label>
+        <label class="op"><input type="checkbox" name="dias_treino" value="Domingo"><span>Domingo</span></label>
+      </div>
+      <p class="msg-erro">Marque pelo menos um dia.</p>
+    </div>
+
+    <div class="campo" data-req data-grupo="horario_treino" data-check>
+      <label class="q">35. Melhor horário para treinar <span class="req">*</span></label>
+      <p class="hint">Marque todas que se aplicam.</p>
+      <div class="opcoes">
+        <label class="op"><input type="checkbox" name="horario_treino" value="Manhã"><span>Manhã</span></label>
+        <label class="op"><input type="checkbox" name="horario_treino" value="Tarde"><span>Tarde</span></label>
+        <label class="op"><input type="checkbox" name="horario_treino" value="Noite"><span>Noite</span></label>
+      </div>
+      <p class="msg-erro">Marque pelo menos um horário.</p>
+    </div>
+
+    <div class="campo" data-req data-grupo="modalidade">
+      <label class="q">36. Deseja acompanhamento em qual modalidade? <span class="req">*</span></label>
+      <div class="opcoes">
+        <label class="op"><input type="radio" name="modalidade" value="Online"><span>Online</span></label>
+        <label class="op"><input type="radio" name="modalidade" value="Presencial"><span>Presencial</span></label>
+        <label class="op"><input type="radio" name="modalidade" value="Ambos"><span>Ambos</span></label>
+      </div>
+      <p class="msg-erro">Selecione uma opção.</p>
+    </div>
+  </section>
+
+  <!-- ============ Consentimento (LGPD) ============ -->
+  <section class="bloco">
+    <label class="consent">
+      <input type="checkbox" id="consentimento" name="consentimento">
+      <p><strong>Autorizo o uso destes dados</strong> exclusivamente para a montagem e acompanhamento do meu treino. Sei que posso pedir a exclusão dos meus dados a qualquer momento. (Dados de saúde são dados sensíveis pela LGPD.)</p>
+    </label>
+    <p class="msg-erro" id="erroConsent" style="margin-top:8px">Você precisa autorizar o uso dos dados para enviar.</p>
+  </section>
+
+  <div class="acao">
+    <button type="submit" class="enviar" id="btnEnviar">Enviar ficha</button>
+    <div class="status" id="statusMsg"></div>
+  </div>
+
+</form>
+</main>
+
+<script>
+/* =========================================================
+   ⚙️  CONFIGURAÇÃO — PREENCHA ESTAS 2 LINHAS
+   =========================================================
+   Onde achar: Supabase > Settings > API
+     SUPABASE_URL      = "Project URL"
+     SUPABASE_ANON_KEY = "anon public"  (NUNCA a service_role)
+   ========================================================= */
+const SUPABASE_URL      = "https://sloamqnvbstpihfzsfqk.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_tyCGNNaJeiD39y9fVPBmGg_nC2Oonev";
+
+/* Cliente padrão, caso a URL venha sem ?c=  */
+const SLUG_PADRAO = "tc-fitness";
+/* ========================================================= */
+
+
+const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+const form       = document.getElementById('fichaForm');
+const fill       = document.getElementById('progressFill');
+const label      = document.getElementById('progressLabel');
+const statusMsg  = document.getElementById('statusMsg');
+const btn        = document.getElementById('btnEnviar');
+const boot       = document.getElementById('boot');
+
+let CLIENTE = null;   // preenchido pelo carregarCliente()
+
+
+/* =========================================================
+   1. CARREGA O CLIENTE (tema + logo) ANTES DE MOSTRAR O FORM
+   ========================================================= */
+function slugDaUrl() {
+  return new URLSearchParams(location.search).get('c') || SLUG_PADRAO;
+}
+
+function aplicarTema(c) {
+  const r = document.documentElement.style;
+  r.setProperty('--primaria', c.cor_primaria);
+  r.setProperty('--escura',   c.cor_escura);
+  r.setProperty('--destaque', c.cor_destaque);
+  r.setProperty('--bg',       c.cor_fundo);
+  r.setProperty('--ink',      c.cor_texto);
+  r.setProperty('--err',      c.cor_erro);
+
+  document.getElementById('tagCliente').textContent = c.nome;
+  document.title = `Ficha Cadastral — ${c.nome}`;
+
+  if (c.logo_url) {
+    // logo com fundo branco vai dentro do card; transparente vai solto
+    const alvo = (c.logo_fundo === 'transparente') ? 'logoSolto' : 'logoCard';
+    const img  = (alvo === 'logoSolto') ? 'logoImg2' : 'logoImg1';
+    document.getElementById(img).src = c.logo_url;
+    document.getElementById(img).alt = c.logo_alt || c.nome;
+    document.getElementById(alvo).classList.add('mostrar');
+  }
+}
+
+function bootErro(titulo, texto) {
+  boot.classList.add('falhou');
+  boot.querySelector('.txt').style.display = 'none';
+  const box = document.getElementById('bootErro');
+  box.style.display = 'block';
+  box.innerHTML = `<h2>${titulo}</h2><p>${texto}</p>`;
+}
+
+async function carregarCliente() {
+  const slug = slugDaUrl();
+  try {
+    const { data, error } = await db.rpc('cliente_por_slug', { p_slug: slug });
+    if (error) throw error;
+
+    if (!data || data.length === 0) {
+      bootErro('Formulário indisponível',
+        `Não encontramos o cadastro de "${slug}". Confira o link ou fale com seu treinador.`);
+      return;
+    }
+    CLIENTE = data[0];
+    aplicarTema(CLIENTE);
+    boot.classList.add('sumiu');
+  } catch (err) {
+    console.error(err);
+    bootErro('Erro de conexão',
+      'Não foi possível carregar o formulário. Verifique sua internet e recarregue a página.');
+  }
+}
+
+
+/* =========================================================
+   2. USABILIDADE
+   ========================================================= */
+document.getElementById('data_nascimento').addEventListener('change', e => {
+  const d = new Date(e.target.value);
+  if (isNaN(d)) return;
+  const hoje = new Date();
+  let idade = hoje.getFullYear() - d.getFullYear();
+  const m = hoje.getMonth() - d.getMonth();
+  if (m < 0 || (m === 0 && hoje.getDate() < d.getDate())) idade--;
+  if (idade > 0 && idade < 120) document.getElementById('idade').value = idade;
+  atualizarProgresso();
+});
+
+document.getElementById('whatsapp').addEventListener('input', e => {
+  let v = e.target.value.replace(/\D/g, '').slice(0, 11);
+  if (v.length > 7)      v = `(${v.slice(0,2)}) ${v.slice(2,7)}-${v.slice(7)}`;
+  else if (v.length > 2) v = `(${v.slice(0,2)}) ${v.slice(2)}`;
+  e.target.value = v;
+});
+
+const campos = [...document.querySelectorAll('.campo[data-req]')];
+
+function campoPreenchido(campo) {
+  const grupo = campo.dataset.grupo;
+  if (grupo) return !!campo.querySelector(`input[name="${grupo}"]:checked`);
+  const input = campo.querySelector('input');
+  return input && input.value.trim() !== '';
+}
+
+/* ---------- Motor de perguntas condicionais ----------
+   Uso no HTML:
+     data-depende="nome_da_pergunta"  -> de quem depende
+     data-valor="Sim"                 -> aparece quando a resposta for isso
+     data-se-oculto="Nunca treinou"   -> o que mandar pro banco se ficar escondida
+   Para criar outra condicional, é só marcar a div .campo. Nada de JS novo.
+*/
+const condicionais = [...document.querySelectorAll('.campo[data-depende]')];
+
+function campoVisivel(campo) {
+  return !campo.classList.contains('oculto');
+}
+
+function aplicarCondicionais() {
+  condicionais.forEach(campo => {
+    const de       = campo.dataset.depende;
+    const esperado = campo.dataset.valor;
+    const marcado  = form.querySelector(`input[name="${de}"]:checked`);
+    const mostrar  = marcado && marcado.value === esperado;
+
+    campo.classList.toggle('oculto', !mostrar);
+
+    if (!mostrar) {
+      // limpa e tira o erro: pergunta escondida não pode travar o envio
+      campo.querySelectorAll('input').forEach(i => {
+        if (i.type === 'checkbox' || i.type === 'radio') i.checked = false;
+        else i.value = '';
+        i.classList.remove('invalido');
+      });
+      campo.classList.remove('erro');
+    }
+  });
+}
+
+// reavalia sempre que qualquer resposta muda
+form.addEventListener('change', () => { aplicarCondicionais(); atualizarProgresso(); });
+
+function atualizarProgresso() {
+  const ativos = campos.filter(campoVisivel);
+  const feitos = ativos.filter(campoPreenchido).length;
+  const pct = ativos.length ? Math.round((feitos / ativos.length) * 100) : 0;
+  fill.style.width = pct + '%';
+  label.textContent = pct + '%';
+}
+form.addEventListener('input',  atualizarProgresso);
+form.addEventListener('change', atualizarProgresso);
+
+
+/* =========================================================
+   3. VALIDAÇÃO
+   ========================================================= */
+function validar() {
+  let ok = true;
+  let primeiroErro = null;
+
+  campos.forEach(campo => {
+    // pergunta escondida não é validada
+    if (!campoVisivel(campo)) {
+      campo.classList.remove('erro');
+      return;
+    }
+
+    let valido = campoPreenchido(campo);
+
+    const email = campo.querySelector('input[type=email]');
+    if (email && valido) valido = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.value.trim());
+
+    const zap = campo.querySelector('#whatsapp');
+    if (zap && valido) valido = zap.value.replace(/\D/g, '').length >= 10;
+
+    // faixas iguais às do banco — evita o insert ser rejeitado lá
+    const num = campo.querySelector('input[type=number]');
+    if (num && valido) {
+      const v = Number(num.value);
+      const min = num.min ? Number(num.min) : -Infinity;
+      const max = num.max ? Number(num.max) : Infinity;
+      valido = !isNaN(v) && v >= min && v <= max;
+    }
+
+    campo.classList.toggle('erro', !valido);
+    const input = campo.querySelector('input[type=text],input[type=email],input[type=tel],input[type=date],input[type=number]');
+    if (input) input.classList.toggle('invalido', !valido);
+
+    if (!valido) { ok = false; primeiroErro = primeiroErro || campo; }
+  });
+
+  const consent = document.getElementById('consentimento');
+  const erroConsent = document.getElementById('erroConsent');
+  if (!consent.checked) {
+    erroConsent.style.display = 'block';
+    ok = false;
+    primeiroErro = primeiroErro || consent.closest('.bloco');
+  } else {
+    erroConsent.style.display = 'none';
+  }
+
+  if (primeiroErro) primeiroErro.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  return ok;
+}
+
+
+/* =========================================================
+   4. PAYLOAD — chaves iguais às colunas da tabela
+   ========================================================= */
+function montarPayload() {
+  const fd = new FormData(form);
+  const pega     = n => (fd.get(n) || '').toString().trim();
+  const pegaTodos = n => fd.getAll(n).map(String);
+
+  // Campo condicional escondido não vem no FormData (está vazio).
+  // Como a coluna é NOT NULL no banco, mandamos o texto do
+  // data-se-oculto. Assim o painel mostra "Nunca treinou" em vez
+  // de um campo em branco sem explicação.
+  const fallback = {};
+  condicionais.forEach(campo => {
+    if (!campoVisivel(campo) && campo.dataset.seOculto) {
+      const input = campo.querySelector('input[name]');
+      if (input) fallback[input.name] = campo.dataset.seOculto;
+    }
+  });
+  const pegaCond = n => fallback[n] ?? pega(n);
+
+  return {
+    cliente_id: CLIENTE.id,          // <- é isto que separa um cliente do outro
+
+    nome_completo: pega('nome_completo'),
+    data_nascimento: pega('data_nascimento'),
+    idade: Number(pega('idade')),
+    profissao: pega('profissao'),
+    whatsapp: pega('whatsapp'),
+    email: pega('email').toLowerCase(),
+
+    ja_treinou: pega('ja_treinou'),
+    tempo_treino_ou_parado: pegaCond('tempo_treino_ou_parado'),
+    teve_acompanhamento: pega('teve_acompanhamento'),
+    outra_atividade: pega('outra_atividade'),
+
+    lesao_ou_dor: pega('lesao_ou_dor'),
+    doenca_diagnosticada: pega('doenca_diagnosticada'),
+    medicamento_continuo: pega('medicamento_continuo'),
+    cirurgia: pega('cirurgia'),
+    dor_ao_movimento: pega('dor_ao_movimento'),
+    liberacao_medica: pega('liberacao_medica'),
+
+    objetivo_principal: pega('objetivo_principal'),
+    prazo_objetivo: pega('prazo_objetivo'),
+    maior_dificuldade: pega('maior_dificuldade'),
+
+    alimentacao_atual: pega('alimentacao_atual'),
+    acompanhamento_nutricionista: pega('acompanhamento_nutricionista'),
+    refeicoes_dia: Number(pega('refeicoes_dia')),
+    consome_alcool: pega('consome_alcool'),
+    fuma: pega('fuma'),
+    sono_horas: pega('sono_horas'),
+    nivel_estresse: pega('nivel_estresse'),
+    postura_trabalho: pega('postura_trabalho'),
+
+    peso_kg: Number(pega('peso_kg')),
+    altura_m: Number(pega('altura_m')),
+    fez_avaliacao_fisica: pega('fez_avaliacao_fisica'),
+    enviar_fotos: pega('enviar_fotos'),
+    local_treino: pega('local_treino'),
+    equipamentos_disponiveis: pega('equipamentos_disponiveis'),
+
+    dias_treino: pegaTodos('dias_treino'),
+    horario_treino: pegaTodos('horario_treino'),
+    modalidade: pega('modalidade'),
+
+    consentimento_lgpd: true,
+    consentimento_em: new Date().toISOString()
+
+    // fechou / ativo / ultima_analise / observacoes:
+    // NÃO mandamos de propósito. A policy do banco só aceita
+    // o insert se eles vierem no default. Quem mexe é o painel.
+  };
+}
+
+
+/* =========================================================
+   5. ENVIO
+   ========================================================= */
+form.addEventListener('submit', async e => {
+  e.preventDefault();
+  statusMsg.className = 'status';
+
+  if (!CLIENTE) {
+    statusMsg.className = 'status falha';
+    statusMsg.textContent = 'O formulário ainda não carregou. Recarregue a página.';
+    return;
+  }
+  if (!validar()) return;
+
+  btn.disabled = true;
+  btn.textContent = 'Enviando...';
+
+  try {
+    const { error } = await db
+      .from('fichas_cadastrais')
+      .insert(montarPayload());
+
+    if (error) throw error;
+
+    // sucesso: esconde o form e mostra a tela de confirmação
+    document.getElementById('areaForm').style.display = 'none';
+    document.getElementById('progressShell').style.display = 'none';
+    document.getElementById('sucessoTxt').textContent =
+      `${CLIENTE.nome} vai entrar em contato pelo seu WhatsApp em breve.`;
+    document.getElementById('sucesso').classList.add('mostrar');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+
+  } catch (err) {
+    console.error(err);
+    statusMsg.className = 'status falha';
+    statusMsg.textContent = err.message?.includes('duplicate')
+      ? 'Parece que você já enviou uma ficha com este e-mail.'
+      : 'Não foi possível enviar. Verifique sua conexão e tente de novo.';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Enviar ficha';
+  }
+});
+
+
+/* ---------- Start ---------- */
+carregarCliente();
+aplicarCondicionais();
+atualizarProgresso();
+</script>
+</body>
+</html>
