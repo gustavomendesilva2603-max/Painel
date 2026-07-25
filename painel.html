@@ -630,14 +630,18 @@ function configurarToggle(id, classeSim, classeNao) {
   const box = document.getElementById(id);
   box.querySelectorAll('button').forEach(b => {
     b.addEventListener('click', () => {
-      box.querySelectorAll('button').forEach(x => x.className = '');
+      box.querySelectorAll('button').forEach(x => { x.className = ''; x.removeAttribute('data-sel'); });
       b.className = b.dataset.v === 'true' ? classeSim : classeNao;
+      b.setAttribute('data-sel', '1');
     });
   });
+  // marca o que já está selecionado na abertura (tem classe inicial)
+  const inicial = box.querySelector('button[class]');
+  if (inicial) inicial.setAttribute('data-sel', '1');
 }
 
 function lerToggle(id) {
-  const sel = document.querySelector(`#${id} button[class]`);
+  const sel = document.querySelector(`#${id} button[data-sel]`);
   return sel ? sel.dataset.v === 'true' : false;
 }
 
