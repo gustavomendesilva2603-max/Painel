@@ -175,6 +175,30 @@
   .treino-btn{display:inline-flex;align-items:center;gap:8px;background:var(--primaria);color:#fff;font-weight:700;font-size:.88rem;padding:9px 16px;border-radius:999px;text-decoration:none}
   .treino-btn:hover{filter:brightness(1.1)}
 
+  /* ===== Solicitações pendentes ===== */
+  .sol-box{background:#FFF7E8;border:1.5px solid #E8A33D;border-radius:var(--radius);padding:14px 16px;margin-top:20px}
+  .sol-box h3{font-size:.78rem;text-transform:uppercase;letter-spacing:.1em;color:#8A5A12;font-weight:800;margin-bottom:10px}
+  .sol-item{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid rgba(232,163,61,.25);flex-wrap:wrap}
+  .sol-item:last-child{border-bottom:none}
+  .sol-item .quem{font-weight:700;font-size:.92rem}
+  .sol-item .quando{font-size:.78rem;color:var(--ink-soft)}
+  .sol-tipo{font-size:.72rem;font-weight:700;padding:3px 9px;border-radius:999px;background:#E8A33D;color:#fff}
+  .sol-acoes{display:flex;gap:6px}
+  .sol-btn{padding:6px 12px;border-radius:8px;font-size:.78rem;font-weight:700;border:1.5px solid var(--line);background:#fff;cursor:pointer;text-decoration:none;color:var(--ink)}
+  .sol-btn.ok{background:var(--destaque);border-color:var(--destaque);color:var(--escura)}
+
+  /* ===== Engajamento no card do aluno ===== */
+  .badge-sumido{background:#FFE8E4;color:var(--err)}
+  .badge-firme{background:#EDF5D4;color:#5C7414}
+
+  /* ===== Gráfico de peso ===== */
+  .grafico-wrap{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;margin-bottom:12px}
+  .grafico-wrap h4{font-size:.75rem;text-transform:uppercase;letter-spacing:.12em;color:var(--primaria);margin-bottom:12px}
+  .grafico-vazio{text-align:center;color:var(--ink-soft);font-size:.85rem;padding:14px 0}
+  .mini-stats{display:flex;gap:16px;flex-wrap:wrap;margin-top:10px;font-size:.82rem}
+  .mini-stats b{display:block;font-size:1.1rem;color:var(--ink)}
+  .mini-stats span{color:var(--ink-soft)}
+
   /* ================= RODAPÉ ================= */
   footer{margin-top:auto;background:var(--escura);color:#F4F6F3;padding:26px 0}
   .foot-flex{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
@@ -237,6 +261,9 @@
     <div class="stat"><div class="num" id="stAtivos">—</div><div class="lbl">Ativos</div></div>
     <div class="stat vermelho"><div class="num" id="stAtrasados">—</div><div class="lbl">Análise atrasada +30d</div></div>
   </div>
+
+  <!-- caixa de solicitações pendentes -->
+  <div id="caixaSolicitacoes"></div>
 
   <div class="controles">
     <div class="busca"><input type="text" id="busca" placeholder="Buscar por nome, e-mail ou WhatsApp..."></div>
@@ -422,9 +449,134 @@ async function carregarAlunos() {
     return;
   }
   alunos = data || [];
+  await carregarEngajamento();
   renderStats();
   renderLista();
+  carregarSolicitacoes();
 }
+
+
+/* =========================================================
+   3.1 ENGAJAMENTO — quem treinou, quem sumiu
+   Junta os check-ins aos alunos para o painel mostrar
+   quem está firme e quem parou de aparecer.
+   ========================================================= */
+let engajamento = {};   // { ficha_id: {ultimo_treino, treinos_7d, treinos_30d} }
+
+async function carregarEngajamento() {
+  engajamento = {};
+  const { data, error } = await db.from('checkins')
+    .select('ficha_id,data,treinou,peso_dia')
+    .gte('data', new Date(Date.now() - 45*86400000).toISOString().slice(0,10))
+    .order('data', { ascending:false });
+  if (error) { console.warn('engajamento:', error.message); return; }
+
+  const hoje = new Date();
+  (data||[]).forEach(c => {
+    const e = engajamento[c.ficha_id] || (engajamento[c.ficha_id] = { treinos_7d:0, treinos_30d:0, ultimo:null, pesos:[] });
+    const dias = Math.floor((hoje - new Date(c.data + 'T12:00:00')) / 86400000);
+    if (c.treinou) {
+      if (dias <= 7)  e.treinos_7d++;
+      if (dias <= 30) e.treinos_30d++;
+      if (!e.ultimo || c.data > e.ultimo) e.ultimo = c.data;
+    }
+    if (c.peso_dia) e.pesos.push({ data:c.data, peso:Number(c.peso_dia) });
+  });
+}
+
+function diasSemTreinar(a) {
+  const e = engajamento[a.id];
+  if (!e || !e.ultimo) return null;
+  return Math.floor((Date.now() - new Date(e.ultimo + 'T12:00:00')) / 86400000);
+}
+
+// badge que mostra o engajamento do aluno na lista
+function badgeEngajamento(a) {
+  if (!a.ativo) return '';
+  const e = engajamento[a.id];
+  const d = diasSemTreinar(a);
+  if (d === null) return '<span class="badge badge-sumido">Sem check-in</span>';
+  if (d >= 7)     return `<span class="badge badge-sumido">${d}d sem treinar</span>`;
+  if (e && e.treinos_7d >= 3) return `<span class="badge badge-firme">${e.treinos_7d}x essa semana</span>`;
+  return '';
+}
+
+/* ---------- gráfico de peso (SVG puro, sem biblioteca) ---------- */
+function graficoPeso(pontos, cor) {
+  if (!pontos || pontos.length < 2) {
+    return '<div class="grafico-vazio">Ainda não há pesos suficientes para o gráfico.<br>O aluno registra o peso no check-in do app.</div>';
+  }
+  const p = [...pontos].sort((a,b) => a.data < b.data ? -1 : 1);
+  const W = 300, H = 110, PAD = 8;
+  const pesos = p.map(x => x.peso);
+  const min = Math.min(...pesos), max = Math.max(...pesos);
+  const range = (max - min) || 1;
+  const px = i => PAD + (i * (W - 2*PAD)) / (p.length - 1);
+  const py = v => PAD + (H - 2*PAD) * (1 - (v - min) / range);
+
+  const linha = p.map((x,i) => `${i?'L':'M'}${px(i).toFixed(1)},${py(x.peso).toFixed(1)}`).join(' ');
+  const area  = linha + ` L${px(p.length-1).toFixed(1)},${H} L${px(0).toFixed(1)},${H} Z`;
+  const bolas = p.map((x,i) => `<circle cx="${px(i).toFixed(1)}" cy="${py(x.peso).toFixed(1)}" r="3" fill="${cor}"/>`).join('');
+
+  const ini = p[0], fim = p[p.length-1];
+  const dif = (fim.peso - ini.peso).toFixed(1);
+  const sinal = dif > 0 ? '+' : '';
+
+  return `
+    <svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block">
+      <path d="${area}"  fill="${cor}" opacity=".12"/>
+      <path d="${linha}" fill="none" stroke="${cor}" stroke-width="2.5" stroke-linejoin="round"/>
+      ${bolas}
+    </svg>
+    <div class="mini-stats">
+      <div><b>${ini.peso} kg</b><span>${fmtData(ini.data)}</span></div>
+      <div><b>${fim.peso} kg</b><span>${fmtData(fim.data)}</span></div>
+      <div><b style="color:${dif<0?'#5C7414':dif>0?'#9A5A12':'inherit'}">${sinal}${dif} kg</b><span>variação</span></div>
+    </div>`;
+}
+
+
+/* =========================================================
+   3.2 SOLICITAÇÕES PENDENTES
+   ========================================================= */
+async function carregarSolicitacoes() {
+  const box = document.getElementById('caixaSolicitacoes');
+  const { data, error } = await db.from('solicitacoes')
+    .select('*').eq('status','aberta').order('criado_em', { ascending:false });
+  if (error) { console.warn('solicitacoes:', error.message); box.innerHTML=''; return; }
+  if (!data || !data.length) { box.innerHTML = ''; return; }
+
+  box.innerHTML = `
+    <div class="sol-box">
+      <h3>⏳ ${data.length} solicitaç${data.length>1?'ões':'ão'} aguardando você</h3>
+      ${data.map(s => {
+        const al = alunos.find(a => a.id === s.ficha_id);
+        const nome = al ? al.nome_completo : 'Aluno';
+        const zap = al ? 'https://wa.me/55' + soNumeros(al.whatsapp) : '#';
+        return `
+        <div class="sol-item">
+          <div>
+            <div class="quem">${esc(nome)}
+              <span class="sol-tipo">${s.tipo==='novo_treino'?'Novo treino':'Acompanhamento'}</span>
+            </div>
+            <div class="quando">Pedido em ${fmtData(s.criado_em)}</div>
+          </div>
+          <div class="sol-acoes">
+            <a class="sol-btn" href="${zap}" target="_blank" rel="noopener">💬 Responder</a>
+            ${al ? `<a class="sol-btn" href="treino.html?ficha=${al.id}">🏋️ Treino</a>` : ''}
+            <button class="sol-btn ok" onclick="resolverSolicitacao('${s.id}')">✓ Resolver</button>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`;
+}
+
+window.resolverSolicitacao = async (id) => {
+  const { error } = await db.from('solicitacoes')
+    .update({ status:'resolvida', resolvido_em: new Date().toISOString() }).eq('id', id);
+  if (error) { alert('Não consegui marcar como resolvida.'); return; }
+  carregarSolicitacoes();
+};
 
 
 /* =========================================================
@@ -506,6 +658,7 @@ function renderLista() {
         <span class="badge ${a.fechou ? 'b-fechou' : 'b-nao-fechou'}">${a.fechou ? 'Fechou' : 'Não fechou'}</span>
         <span class="badge ${a.ativo ? 'b-ativo' : 'b-inativo'}">${a.ativo ? 'Ativo' : 'Inativo'}</span>
         ${analiseAtrasada(a) ? '<span class="badge b-atrasado">Análise atrasada</span>' : ''}
+        ${badgeEngajamento(a)}
       </div>`;
     el.addEventListener('click', () => abrirModal(a));
     lista.appendChild(el);
@@ -563,6 +716,18 @@ function abrirModal(a) {
       </div>
       <button class="salvar" id="btnSalvar">Salvar alterações</button>
       <p class="salvo-msg" id="salvoMsg"></p>
+    </div>
+
+    <div class="grafico-wrap">
+      <h4>📈 Evolução de peso</h4>
+      ${graficoPeso((engajamento[a.id]||{}).pesos, getComputedStyle(document.documentElement).getPropertyValue('--primaria').trim() || '#39556A')}
+    </div>
+
+    <div class="secao">
+      <h4>Frequência de treino</h4>
+      ${dado('Último treino registrado', (engajamento[a.id]||{}).ultimo ? fmtData(engajamento[a.id].ultimo) + (diasSemTreinar(a)!==null ? ` (há ${diasSemTreinar(a)} dias)` : '') : 'Nenhum ainda')}
+      ${dado('Treinos nos últimos 7 dias', (engajamento[a.id]||{}).treinos_7d ?? 0)}
+      ${dado('Treinos nos últimos 30 dias', (engajamento[a.id]||{}).treinos_30d ?? 0)}
     </div>
 
     <div class="secao">
