@@ -3,12 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Ficha Cadastral — Anamnese</title>
+<title>Gestão de Alunos</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root{
-    /* Estas 6 variáveis são SOBRESCRITAS pelo tema do cliente no JS.
-       Os valores abaixo são só o fallback enquanto carrega. */
+    /* Sobrescritas pelo tema do cliente (meu_tema) após o login.
+       Os valores abaixo são só o fallback da tela de login. */
     --primaria:#39556A;
     --escura:#2C4356;
     --destaque:#BEDA49;
@@ -24,548 +24,344 @@
   *{box-sizing:border-box;margin:0;padding:0}
   body{
     font-family:"Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif;
-    background:var(--bg);color:var(--ink);line-height:1.55;padding-bottom:80px;
+    background:var(--bg);color:var(--ink);line-height:1.5;
+    min-height:100vh;display:flex;flex-direction:column;
   }
-  .wrap{max-width:760px;margin:0 auto}
+  .wrap{max-width:1040px;margin:0 auto;padding:0 20px;width:100%}
+  .conteudo{flex:1;width:100%;padding-bottom:40px}
 
-  /* ===== Tela de carregamento / erro ===== */
-  #boot{
-    position:fixed;inset:0;background:var(--bg);z-index:99;
-    display:flex;flex-direction:column;align-items:center;justify-content:center;
-    gap:14px;padding:30px;text-align:center;
+  /* ================= LOGIN ================= */
+  #telaLogin{
+    position:fixed;inset:0;z-index:80;background:var(--escura);
+    display:flex;align-items:center;justify-content:center;padding:24px;
   }
-  #boot.sumiu{display:none}
+  #telaLogin.sumiu{display:none}
+  .login-card{
+    background:var(--card);border-radius:18px;padding:32px 28px;
+    width:100%;max-width:380px;box-shadow:0 12px 40px rgba(0,0,0,.3);
+  }
+  .login-card .marca{text-align:center;margin-bottom:22px}
+  .login-card .marca img{max-height:56px;max-width:200px;margin:0 auto 10px;display:none}
+  .login-card .marca img.mostrar{display:block}
+  .login-card h1{font-size:1.3rem;font-weight:800;letter-spacing:-.02em}
+  .login-card .sub{font-size:.85rem;color:var(--ink-soft);margin-top:4px}
+  .login-card label{display:block;font-size:.8rem;font-weight:700;color:var(--ink-soft);margin:14px 0 6px}
+  .login-card input{
+    width:100%;padding:12px 14px;font-size:1rem;border:1.5px solid var(--line);
+    border-radius:10px;background:#FBFAF7;color:var(--ink);
+  }
+  .login-card input:focus{outline:none;border-color:var(--primaria);box-shadow:0 0 0 3px rgba(57,85,106,.14)}
+  .login-card button{
+    width:100%;margin-top:20px;padding:13px;font-size:1rem;font-weight:800;
+    color:var(--escura);background:var(--destaque);border:none;border-radius:10px;cursor:pointer;
+  }
+  .login-card button:disabled{opacity:.6;cursor:wait}
+  #loginErro{
+    display:none;margin-top:14px;padding:11px;border-radius:9px;font-size:.85rem;
+    background:#FBE7E3;color:var(--err);border:1px solid var(--err);font-weight:600;
+  }
+  #loginErro.mostrar{display:block}
+
   .spinner{
-    width:34px;height:34px;border:3px solid var(--line);
-    border-top-color:var(--primaria);border-radius:50%;
-    animation:gira .8s linear infinite;
+    width:32px;height:32px;border:3px solid rgba(255,255,255,.25);
+    border-top-color:#fff;border-radius:50%;animation:gira .8s linear infinite;
   }
   @keyframes gira{to{transform:rotate(360deg)}}
-  #boot .txt{font-size:.92rem;color:var(--ink-soft)}
-  #boot.falhou .spinner{display:none}
-  #boot .erro-box{max-width:420px}
-  #boot .erro-box h2{font-size:1.1rem;margin-bottom:8px;color:var(--err)}
-  #boot .erro-box p{font-size:.9rem;color:var(--ink-soft)}
 
-  /* ===== Header ===== */
-  header{background:var(--escura);color:#F4F6F3;padding:26px 20px 34px}
-  .header-flex{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
-  #logoCard{
-    background:#fff;border-radius:12px;padding:8px 14px;display:none;
-    box-shadow:0 2px 10px rgba(0,0,0,.18);
-  }
+  /* ================= HEADER ================= */
+  header{background:var(--escura);padding:20px 0 34px}
+  .header-flex{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+  .header-esq{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  #logoCard{background:#fff;border-radius:12px;padding:8px 16px;display:none;box-shadow:0 2px 10px rgba(0,0,0,.18)}
   #logoCard.mostrar{display:block}
   #logoSolto{display:none}
   #logoSolto.mostrar{display:block}
-  header img{height:48px;width:auto;display:block}
-  header .tag{
-    display:inline-block;font-size:.68rem;letter-spacing:.18em;text-transform:uppercase;
-    color:var(--destaque);font-weight:800;margin-bottom:4px;
+  header img{height:52px;width:auto;display:block}
+  .header-title{color:#F4F6F3}
+  .header-title .tag{display:inline-block;font-size:.68rem;letter-spacing:.18em;text-transform:uppercase;color:var(--destaque);font-weight:800;margin-bottom:4px}
+  .header-title h1{font-size:clamp(1.3rem,3.5vw,1.8rem);font-weight:800;letter-spacing:-.02em}
+  .header-dir{display:flex;align-items:center;gap:12px;color:rgba(244,246,243,.7);font-size:.8rem}
+  .btn-sair{
+    background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:#F4F6F3;
+    padding:7px 14px;border-radius:999px;font-size:.8rem;font-weight:700;cursor:pointer;
   }
-  header h1{font-size:clamp(1.5rem,4vw,2.1rem);font-weight:800;letter-spacing:-.02em;line-height:1.15}
-  header .sub{margin-top:6px;color:rgba(244,246,243,.75);font-size:.92rem;max-width:520px}
+  .btn-sair:hover{background:rgba(255,255,255,.2)}
 
-  /* ===== Progresso ===== */
-  .progress-shell{position:sticky;top:0;z-index:10;background:var(--bg);border-bottom:1px solid var(--line);padding:10px 20px}
-  .progress-inner{max-width:760px;margin:0 auto;display:flex;align-items:center;gap:12px}
-  .progress-bar{flex:1;height:8px;background:var(--line);border-radius:999px;overflow:hidden}
-  .progress-fill{height:100%;width:0%;background:var(--destaque);border-radius:999px;transition:width .3s ease}
-  .progress-label{font-size:.78rem;font-weight:700;color:var(--ink-soft);min-width:46px;text-align:right}
+  /* ================= STATS ================= */
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-top:-20px}
+  .stat{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px;border-top:3px solid var(--primaria)}
+  .stat .num{font-size:1.6rem;font-weight:800;letter-spacing:-.02em}
+  .stat .lbl{font-size:.73rem;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.08em;font-weight:600}
+  .stat.destaque{border-top-color:var(--destaque)}
+  .stat.vermelho{border-top-color:var(--err)}
+  .stat.vermelho .num{color:var(--err)}
 
-  /* ===== Blocos ===== */
-  main{padding:28px 20px 0}
-  .bloco{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:26px 22px;margin-bottom:22px}
-  .bloco-head{display:flex;align-items:baseline;gap:12px;margin-bottom:20px;border-bottom:2px solid var(--primaria);padding-bottom:12px}
-  .bloco-num{font-size:.72rem;font-weight:800;letter-spacing:.14em;color:var(--primaria);text-transform:uppercase;white-space:nowrap}
-  .bloco-head h2{font-size:1.15rem;font-weight:800;letter-spacing:-.01em}
+  /* ================= CONTROLES ================= */
+  .controles{display:flex;flex-wrap:wrap;gap:10px;margin:22px 0 16px;align-items:center}
+  .busca{flex:1;min-width:220px;position:relative}
+  .busca input{width:100%;padding:11px 14px 11px 38px;font-size:.95rem;border:1.5px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink)}
+  .busca::before{content:"🔍";position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:.85rem;opacity:.5}
+  .busca input:focus{outline:none;border-color:var(--primaria);box-shadow:0 0 0 3px rgba(57,85,106,.14)}
+  .filtros{display:flex;gap:8px;flex-wrap:wrap}
+  .chip{padding:9px 16px;font-size:.85rem;font-weight:600;border-radius:999px;border:1.5px solid var(--line);background:var(--card);cursor:pointer;transition:all .15s;color:var(--ink-soft)}
+  .chip.on{background:var(--primaria);border-color:var(--primaria);color:#fff}
 
-  .campo{margin-bottom:20px}
-  .campo:last-child{margin-bottom:0}
-  label.q{display:block;font-weight:600;font-size:.95rem;margin-bottom:8px}
-  label.q .req{color:var(--err);margin-left:2px}
-  .hint{font-size:.8rem;color:var(--ink-soft);margin-top:-4px;margin-bottom:8px}
-
-  input[type=text],input[type=email],input[type=tel],input[type=date],input[type=number]{
-    width:100%;padding:12px 14px;font-size:1rem;border:1.5px solid var(--line);
-    border-radius:10px;background:#FBFAF7;color:var(--ink);
-    transition:border-color .15s, box-shadow .15s;
+  /* ================= LISTA ================= */
+  .lista{display:flex;flex-direction:column;gap:10px}
+  .aluno{
+    background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+    padding:16px 18px;cursor:pointer;transition:border-color .15s, box-shadow .15s;
+    display:grid;grid-template-columns:1fr auto;gap:6px 14px;align-items:center;
+    border-left:4px solid var(--line);
   }
-  input:focus{outline:none;border-color:var(--primaria);box-shadow:0 0 0 3px rgba(57,85,106,.14)}
-  input.invalido{border-color:var(--err)}
+  .aluno.at{border-left-color:var(--destaque)}
+  .aluno:hover{border-color:var(--primaria);box-shadow:0 2px 10px rgba(44,67,86,.1)}
+  .aluno .nome{font-weight:700;font-size:1.02rem}
+  .aluno .sub{font-size:.82rem;color:var(--ink-soft);display:flex;gap:12px;flex-wrap:wrap;margin-top:2px}
+  .badges{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+  .badge{font-size:.72rem;font-weight:700;padding:4px 10px;border-radius:999px;letter-spacing:.03em;white-space:nowrap}
+  .b-ativo{background:#EDF5D4;color:#5C7414}
+  .b-inativo{background:#E8ECEA;color:var(--ink-soft)}
+  .b-fechou{background:var(--destaque);color:var(--escura)}
+  .b-nao-fechou{background:#FFF0E0;color:#9A5A12}
+  .b-atrasado{background:#FBE7E3;color:var(--err)}
+  .vazio{text-align:center;padding:50px 20px;color:var(--ink-soft)}
+  .vazio strong{display:block;font-size:1.05rem;color:var(--ink);margin-bottom:6px}
+  .carregando{text-align:center;padding:50px 20px;color:var(--ink-soft);font-size:.9rem}
 
-  .opcoes{display:flex;flex-wrap:wrap;gap:10px}
-  .op{position:relative}
-  .op input{position:absolute;opacity:0;inset:0;cursor:pointer}
-  .op span{
-    display:inline-flex;align-items:center;padding:10px 16px;
-    border:1.5px solid var(--line);border-radius:999px;font-size:.92rem;
-    background:#FBFAF7;cursor:pointer;transition:all .15s;user-select:none;
+  /* ================= MODAL ================= */
+  .overlay{position:fixed;inset:0;background:rgba(34,51,63,.6);z-index:50;display:none;align-items:flex-end;justify-content:center}
+  .overlay.aberto{display:flex}
+  .modal{background:var(--bg);width:100%;max-width:720px;max-height:92vh;overflow-y:auto;border-radius:18px 18px 0 0;padding:0 0 30px}
+  @media(min-width:740px){.overlay{align-items:center;padding:24px}.modal{border-radius:18px}}
+  .modal-top{position:sticky;top:0;background:var(--escura);color:#F4F6F3;padding:18px 22px;display:flex;justify-content:space-between;align-items:center;gap:12px;border-radius:18px 18px 0 0;z-index:2}
+  .modal-top h2{font-size:1.15rem;font-weight:800;letter-spacing:-.01em}
+  .fechar{background:rgba(255,255,255,.15);border:none;color:#fff;width:34px;height:34px;border-radius:50%;font-size:1.1rem;cursor:pointer;flex-shrink:0}
+  .modal-body{padding:18px 22px 0}
+
+  .gestao{background:var(--card);border:2px solid var(--destaque);border-radius:var(--radius);padding:18px;margin-bottom:18px}
+  .gestao h3{font-size:.78rem;text-transform:uppercase;letter-spacing:.12em;color:var(--primaria);margin-bottom:14px}
+  .gestao-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px}
+  .g-item .g-lbl{font-size:.8rem;font-weight:600;color:var(--ink-soft);margin-bottom:6px;display:block}
+  .toggle{display:flex;gap:8px}
+  .toggle button{flex:1;padding:10px;font-size:.88rem;font-weight:700;border-radius:10px;border:1.5px solid var(--line);background:#FAFBF8;cursor:pointer;transition:all .15s;color:var(--ink-soft)}
+  .toggle button.sel-destaque{background:var(--destaque);border-color:var(--destaque);color:var(--escura)}
+  .toggle button.sel-cinza{background:#5C7183;border-color:#5C7183;color:#fff}
+  .toggle button.sel-laranja{background:#E8862E;border-color:#E8862E;color:#fff}
+  input[type=date]{width:100%;padding:10px 12px;font-size:.95rem;border:1.5px solid var(--line);border-radius:10px;background:#FAFBF8;color:var(--ink)}
+  input[type=date]:focus{outline:none;border-color:var(--primaria);box-shadow:0 0 0 3px rgba(57,85,106,.14)}
+  textarea{
+    width:100%;padding:10px 12px;font-size:.92rem;border:1.5px solid var(--line);
+    border-radius:10px;background:#FAFBF8;color:var(--ink);resize:vertical;min-height:70px;
+    font-family:inherit;
   }
-  .op input:checked + span{background:var(--primaria);border-color:var(--primaria);color:#fff;font-weight:600}
-  .op input:focus-visible + span{box-shadow:0 0 0 3px rgba(57,85,106,.28)}
+  textarea:focus{outline:none;border-color:var(--primaria);box-shadow:0 0 0 3px rgba(57,85,106,.14)}
+  .salvar{width:100%;margin-top:16px;padding:13px;font-size:.98rem;font-weight:800;color:var(--escura);background:var(--destaque);border:none;border-radius:10px;cursor:pointer;letter-spacing:.02em}
+  .salvar:hover{filter:brightness(1.05)}
+  .salvar:disabled{opacity:.6;cursor:wait}
+  .salvo-msg{display:none;text-align:center;font-size:.85rem;font-weight:700;margin-top:10px}
+  .salvo-msg.ok{display:block;color:#5C7414}
+  .salvo-msg.falha{display:block;color:var(--err)}
 
-  .msg-erro{display:none;color:var(--err);font-size:.8rem;margin-top:6px;font-weight:600}
-  .campo.erro .msg-erro{display:block}
-  .campo.erro .op span{border-color:var(--err)}
+  .secao{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;margin-bottom:12px}
+  .secao h4{font-size:.75rem;text-transform:uppercase;letter-spacing:.12em;color:var(--primaria);margin-bottom:12px;border-bottom:1.5px solid var(--line);padding-bottom:8px}
+  .dado{display:flex;justify-content:space-between;gap:16px;padding:6px 0;font-size:.9rem;border-bottom:1px dashed #EAEEEC}
+  .dado:last-child{border-bottom:none}
+  .dado .k{color:var(--ink-soft);flex-shrink:0}
+  .dado .v{font-weight:600;text-align:right}
+  .alerta-saude .v{color:var(--err)}
 
-  .consent{display:flex;gap:12px;align-items:flex-start;background:#F0EFE9;border:1px solid var(--line);border-radius:10px;padding:14px}
-  .consent input{width:18px;height:18px;margin-top:2px;accent-color:var(--primaria);flex-shrink:0}
-  .consent p{font-size:.83rem;color:var(--ink-soft)}
+  .zap-btn{display:inline-flex;align-items:center;gap:8px;background:#25D366;color:#fff;font-weight:700;font-size:.88rem;padding:9px 16px;border-radius:999px;text-decoration:none;margin-bottom:16px}
+  .treino-btn{display:inline-flex;align-items:center;gap:8px;background:var(--primaria);color:#fff;font-weight:700;font-size:.88rem;padding:9px 16px;border-radius:999px;text-decoration:none}
+  .treino-btn:hover{filter:brightness(1.1)}
 
-  .acao{max-width:760px;margin:6px auto 0}
-  button.enviar{
-    width:100%;padding:16px;font-size:1.05rem;font-weight:800;letter-spacing:.02em;
-    color:var(--escura);background:var(--destaque);border:none;border-radius:12px;cursor:pointer;
-    transition:transform .1s, filter .15s;
-  }
-  button.enviar:hover{filter:brightness(1.06)}
-  button.enviar:active{transform:scale(.99)}
-  button.enviar:disabled{opacity:.6;cursor:wait}
-
-  .status{margin-top:14px;padding:14px;border-radius:10px;font-size:.9rem;display:none}
-  .status.ok{display:block;background:#EDF5D4;color:var(--escura);border:1px solid var(--destaque)}
-  .status.falha{display:block;background:#FBE7E3;color:var(--err);border:1px solid var(--err)}
-
-  /* ===== Tela de sucesso ===== */
-  #sucesso{display:none;padding:60px 20px;text-align:center}
-  #sucesso.mostrar{display:block}
-  #sucesso .check{
-    width:64px;height:64px;border-radius:50%;background:var(--destaque);
-    display:flex;align-items:center;justify-content:center;margin:0 auto 18px;
-    font-size:2rem;color:var(--escura);
-  }
-  #sucesso h2{font-size:1.5rem;font-weight:800;margin-bottom:8px}
-  #sucesso p{color:var(--ink-soft);max-width:420px;margin:0 auto}
-
-  /* ===== Campo condicional ===== */
-  .campo[data-depende]{
-    overflow:hidden;
-    max-height:400px;
-    opacity:1;
-    transition:max-height .3s ease, opacity .2s ease, margin .3s ease;
-  }
-  .campo.oculto{
-    max-height:0 !important;
-    opacity:0 !important;
-    margin-bottom:0 !important;
-    pointer-events:none;
-  }
+  /* ================= RODAPÉ ================= */
+  footer{margin-top:auto;background:var(--escura);color:#F4F6F3;padding:26px 0}
+  .foot-flex{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+  .foot-brand{font-weight:800;font-size:1.05rem;letter-spacing:-.01em}
+  .contatos{display:flex;gap:18px;flex-wrap:wrap;font-size:.85rem}
+  .contatos a{color:#F4F6F3;text-decoration:none;display:inline-flex;align-items:center;gap:7px;opacity:.9}
+  .contatos a:hover{color:var(--destaque);opacity:1}
 
   @media (prefers-reduced-motion:reduce){*{transition:none !important;animation:none !important}}
 </style>
 </head>
 <body>
 
-<!-- Tela que segura o form até o tema do cliente carregar -->
-<div id="boot">
-  <div class="spinner"></div>
-  <div class="txt">Carregando...</div>
-  <div class="erro-box" id="bootErro" style="display:none"></div>
+<!-- ================= TELA DE LOGIN ================= -->
+<div id="telaLogin">
+  <div class="login-card" id="loginCard">
+    <div class="marca">
+      <img id="loginLogo" alt="">
+      <h1>Gestão de alunos</h1>
+      <p class="sub">Entre com seu login e senha</p>
+    </div>
+    <form id="formLogin">
+      <label for="loginSlug">Login</label>
+      <input type="text" id="loginSlug" autocomplete="username" required
+             placeholder="tc-fitness" autocapitalize="none" spellcheck="false">
+
+      <label for="loginSenha">Senha</label>
+      <input type="password" id="loginSenha" autocomplete="current-password" required>
+
+      <button type="submit" id="btnLogin">Entrar</button>
+      <div id="loginErro"></div>
+    </form>
+  </div>
 </div>
 
+<!-- ================= HEADER ================= -->
 <header>
   <div class="wrap header-flex">
-    <div id="logoCard"><img id="logoImg1" alt=""></div>
-    <div id="logoSolto"><img id="logoImg2" alt=""></div>
-    <div>
-      <span class="tag" id="tagCliente">Ficha cadastral</span>
-      <h1>Anamnese do aluno</h1>
-      <p class="sub">Preencha com atenção — essas respostas definem como seu treino vai ser montado. Leva menos de 5 minutos.</p>
+    <div class="header-esq">
+      <div id="logoCard"><img id="logoImg1" alt=""></div>
+      <div id="logoSolto"><img id="logoImg2" alt=""></div>
+      <div class="header-title">
+        <span class="tag" id="tagCliente">Painel do treinador</span>
+        <h1>Gestão de alunos</h1>
+      </div>
+    </div>
+    <div class="header-dir">
+      <span id="usuarioEmail"></span>
+      <button class="btn-sair" id="btnSair">Sair</button>
     </div>
   </div>
 </header>
 
-<div class="progress-shell" id="progressShell">
-  <div class="progress-inner">
-    <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
-    <div class="progress-label" id="progressLabel">0%</div>
+<div class="conteudo">
+<div class="wrap">
+
+  <div class="stats">
+    <div class="stat"><div class="num" id="stTotal">—</div><div class="lbl">Fichas recebidas</div></div>
+    <div class="stat destaque"><div class="num" id="stFecharam">—</div><div class="lbl">Fecharam</div></div>
+    <div class="stat"><div class="num" id="stAtivos">—</div><div class="lbl">Ativos</div></div>
+    <div class="stat vermelho"><div class="num" id="stAtrasados">—</div><div class="lbl">Análise atrasada +30d</div></div>
+  </div>
+
+  <div class="controles">
+    <div class="busca"><input type="text" id="busca" placeholder="Buscar por nome, e-mail ou WhatsApp..."></div>
+    <div class="filtros">
+      <button class="chip on" data-filtro="todos">Todos</button>
+      <button class="chip" data-filtro="fechou">Fecharam</button>
+      <button class="chip" data-filtro="nao_fechou">Não fecharam</button>
+      <button class="chip" data-filtro="ativo">Ativos</button>
+      <button class="chip" data-filtro="inativo">Inativos</button>
+      <button class="chip" data-filtro="atrasado">Análise atrasada</button>
+    </div>
+  </div>
+
+  <div class="carregando" id="carregando">Carregando alunos...</div>
+  <div class="lista" id="lista"></div>
+  <div class="vazio" id="vazio" style="display:none">
+    <strong>Nenhum aluno encontrado</strong>
+    Ajuste a busca ou os filtros.
+  </div>
+</div>
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <div class="modal-top">
+      <h2 id="mNome">Aluno</h2>
+      <button class="fechar" id="btnFechar" aria-label="Fechar">✕</button>
+    </div>
+    <div class="modal-body" id="mBody"></div>
   </div>
 </div>
 
-<div id="sucesso">
-  <div class="check">✓</div>
-  <h2>Ficha enviada!</h2>
-  <p id="sucessoTxt">Em breve entramos em contato pelo seu WhatsApp.</p>
-</div>
-
-<main class="wrap" id="areaForm">
-<form id="fichaForm" novalidate>
-
-  <!-- ============ BLOCO 1 ============ -->
-  <section class="bloco">
-    <div class="bloco-head"><span class="bloco-num">Bloco 01</span><h2>Dados pessoais</h2></div>
-
-    <div class="campo" data-req>
-      <label class="q" for="nome_completo">1. Nome completo <span class="req">*</span></label>
-      <input type="text" id="nome_completo" name="nome_completo" autocomplete="name">
-      <p class="msg-erro">Informe seu nome completo.</p>
-    </div>
-
-    <div class="campo" data-req>
-      <label class="q" for="data_nascimento">2. Data de nascimento <span class="req">*</span></label>
-      <input type="date" id="data_nascimento" name="data_nascimento">
-      <p class="msg-erro">Informe sua data de nascimento.</p>
-    </div>
-
-    <div class="campo" data-req>
-      <label class="q" for="idade">3. Idade <span class="req">*</span></label>
-      <input type="number" id="idade" name="idade" min="10" max="110" inputmode="numeric">
-      <p class="msg-erro">Informe uma idade entre 10 e 110.</p>
-    </div>
-
-    <div class="campo" data-req>
-      <label class="q" for="profissao">4. Profissão <span class="req">*</span></label>
-      <input type="text" id="profissao" name="profissao">
-      <p class="msg-erro">Informe sua profissão.</p>
-    </div>
-
-    <div class="campo" data-req>
-      <label class="q" for="whatsapp">5. WhatsApp (DDD + número) <span class="req">*</span></label>
-      <input type="tel" id="whatsapp" name="whatsapp" placeholder="(11) 91234-5678" inputmode="tel" autocomplete="tel">
-      <p class="msg-erro">Informe um WhatsApp válido com DDD.</p>
-    </div>
-
-    <div class="campo" data-req>
-      <label class="q" for="email">6. E-mail <span class="req">*</span></label>
-      <input type="email" id="email" name="email" placeholder="voce@email.com" autocomplete="email">
-      <p class="msg-erro">Informe um e-mail válido.</p>
-    </div>
-  </section>
-
-  <!-- ============ BLOCO 2 ============ -->
-  <section class="bloco">
-    <div class="bloco-head"><span class="bloco-num">Bloco 02</span><h2>Histórico de treino</h2></div>
-
-    <div class="campo" data-req data-grupo="ja_treinou">
-      <label class="q">7. Já treinou antes? <span class="req">*</span></label>
-      <div class="opcoes">
-        <label class="op"><input type="radio" name="ja_treinou" value="Sim"><span>Sim</span></label>
-        <label class="op"><input type="radio" name="ja_treinou" value="Não"><span>Não</span></label>
-      </div>
-      <p class="msg-erro">Selecione uma opção.</p>
-    </div>
-
-    <div class="campo oculto" data-req data-depende="ja_treinou" data-valor="Sim" data-se-oculto="Nunca treinou">
-      <label class="q" for="tempo_treino_ou_parado">8. Há quanto tempo treina ou ficou parado(a)? <span class="req">*</span></label>
-      <input type="text" id="tempo_treino_ou_parado" name="tempo_treino_ou_parado" placeholder="Ex: treino há 6 meses / parado há 1 ano">
-      <p class="msg-erro">Preencha este campo.</p>
-    </div>
-
-    <div class="campo" data-req data-grupo="teve_acompanhamento">
-      <label class="q">9. Já teve acompanhamento de personal ou consultoria? <span class="req">*</span></label>
-      <div class="opcoes">
-        <label class="op"><input type="radio" name="teve_acompanhamento" value="Sim"><span>Sim</span></label>
-        <label class="op"><input type="radio" name="teve_acompanhamento" value="Não"><span>Não</span></label>
-      </div>
-      <p class="msg-erro">Selecione uma opção.</p>
-    </div>
-
-    <div class="campo" data-req>
-      <label class="q" for="outra_atividade">10. Pratica outra atividade física? Qual? <span class="req">*</span></label>
-      <input type="text" id="outra_atividade" name="outra_atividade" placeholder="Ex: futebol 1x por semana / não pratico">
-      <p class="msg-erro">Preencha este campo (se não pratica, escreva "não").</p>
-    </div>
-  </section>
-
-  <!-- ============ BLOCO 3 ============ -->
-  <section class="bloco">
-    <div class="bloco-head"><span class="bloco-num">Bloco 03</span><h2>Saúde e histórico clínico</h2></div>
-
-    <div class="campo" data-req>
-      <label class="q" for="lesao_ou_dor">11. Possui alguma lesão ou dor? Onde? <span class="req">*</span></label>
-      <input type="text" id="lesao_ou_dor" name="lesao_ou_dor" placeholder='Se não tiver, escreva "não"'>
-      <p class="msg-erro">Preencha este campo.</p>
-    </div>
-
-    <div class="campo" data-req>
-      <label class="q" for="doenca_diagnosticada">12. Possui alguma doença diagnosticada? (hipertensão, diabetes, etc.) <span class="req">*</span></label>
-      <input type="text" id="doenca_diagnosticada" name="doenca_diagnosticada" placeholder='Se não tiver, escreva "não"'>
-      <p class="msg-erro">Preencha este campo.</p>
-    </div>
-
-    <div class="campo" data-req>
-      <label class="q" for="medicamento_continuo">13. Faz uso de medicamento contínuo? Qual? <span class="req">*</span></label>
-      <input type="text" id="medicamento_continuo" name="medicamento_continuo" placeholder='Se não usa, escreva "não"'>
-      <p class="msg-erro">Preencha este campo.</p>
-    </div>
-
-    <div class="campo" data-req>
-      <label class="q" for="cirurgia">14. Já passou por cirurgia? Qual? <span class="req">*</span></label>
-      <input type="text" id="cirurgia" name="cirurgia" placeholder='Se não, escreva "não"'>
-      <p class="msg-erro">Preencha este campo.</p>
-    </div>
-
-    <div class="campo" data-req>
-      <label class="q" for="dor_ao_movimento">15. Sente dor ao realizar algum movimento? Qual? <span class="req">*</span></label>
-      <input type="text" id="dor_ao_movimento" name="dor_ao_movimento" placeholder='Se não, escreva "não"'>
-      <p class="msg-erro">Preencha este campo.</p>
-    </div>
-
-    <div class="campo" data-req data-grupo="liberacao_medica">
-      <label class="q">16. Possui liberação médica para treinar? <span class="req">*</span></label>
-      <div class="opcoes">
-        <label class="op"><input type="radio" name="liberacao_medica" value="Sim"><span>Sim</span></label>
-        <label class="op"><input type="radio" name="liberacao_medica" value="Não"><span>Não</span></label>
-        <label class="op"><input type="radio" name="liberacao_medica" value="Nunca precisei"><span>Nunca precisei</span></label>
-      </div>
-      <p class="msg-erro">Selecione uma opção.</p>
-    </div>
-  </section>
-
-  <!-- ============ BLOCO 4 ============ -->
-  <section class="bloco">
-    <div class="bloco-head"><span class="bloco-num">Bloco 04</span><h2>Objetivo</h2></div>
-
-    <div class="campo" data-req data-grupo="objetivo_principal">
-      <label class="q">17. Qual seu objetivo principal? <span class="req">*</span></label>
-      <div class="opcoes">
-        <label class="op"><input type="radio" name="objetivo_principal" value="Emagrecimento"><span>Emagrecimento</span></label>
-        <label class="op"><input type="radio" name="objetivo_principal" value="Hipertrofia"><span>Hipertrofia</span></label>
-        <label class="op"><input type="radio" name="objetivo_principal" value="Condicionamento físico"><span>Condicionamento físico</span></label>
-        <label class="op"><input type="radio" name="objetivo_principal" value="Qualidade de vida"><span>Qualidade de vida</span></label>
-        <label class="op"><input type="radio" name="objetivo_principal" value="Estética geral"><span>Estética geral</span></label>
-      </div>
-      <p class="msg-erro">Selecione uma opção.</p>
-    </div>
-
-    <div class="campo" data-req>
-      <label class="q" for="prazo_objetivo">18. Em quanto tempo espera alcançar seu objetivo? <span class="req">*</span></label>
-      <input type="text" id="prazo_objetivo" name="prazo_objetivo" placeholder="Ex: 6 meses">
-      <p class="msg-erro">Preencha este campo.</p>
-    </div>
-
-    <div class="campo" data-req data-grupo="maior_dificuldade">
-      <label class="q">19. Qual sua maior dificuldade hoje? <span class="req">*</span></label>
-      <div class="opcoes">
-        <label class="op"><input type="radio" name="maior_dificuldade" value="Constância"><span>Constância</span></label>
-        <label class="op"><input type="radio" name="maior_dificuldade" value="Alimentação"><span>Alimentação</span></label>
-        <label class="op"><input type="radio" name="maior_dificuldade" value="Motivação"><span>Motivação</span></label>
-        <label class="op"><input type="radio" name="maior_dificuldade" value="Tempo"><span>Tempo</span></label>
-        <label class="op"><input type="radio" name="maior_dificuldade" value="Técnica dos exercícios"><span>Técnica dos exercícios</span></label>
-      </div>
-      <p class="msg-erro">Selecione uma opção.</p>
-    </div>
-  </section>
-
-  <!-- ============ BLOCO 5 ============ -->
-  <section class="bloco">
-    <div class="bloco-head"><span class="bloco-num">Bloco 05</span><h2>Hábitos e rotina</h2></div>
-
-    <div class="campo" data-req data-grupo="alimentacao_atual">
-      <label class="q">20. Como está sua alimentação atualmente? <span class="req">*</span></label>
-      <div class="opcoes">
-        <label class="op"><input type="radio" name="alimentacao_atual" value="Boa"><span>Boa</span></label>
-        <label class="op"><input type="radio" name="alimentacao_atual" value="Regular"><span>Regular</span></label>
-        <label class="op"><input type="radio" name="alimentacao_atual" value="Ruim"><span>Ruim</span></label>
-      </div>
-      <p class="msg-erro">Selecione uma opção.</p>
-    </div>
-
-    <div class="campo" data-req data-grupo="acompanhamento_nutricionista">
-      <label class="q">21. Faz acompanhamento com nutricionista? <span class="req">*</span></label>
-      <div class="opcoes">
-        <label class="op"><input type="radio" name="acompanhamento_nutricionista" value="Sim"><span>Sim</span></label>
-        <label class="op"><input type="radio" name="acompanhamento_nutricionista" value="Não"><span>Não</span></label>
-      </div>
-      <p class="msg-erro">Selecione uma opção.</p>
-    </div>
-
-    <div class="campo" data-req>
-      <label class="q" for="refeicoes_dia">22. Quantas refeições por dia? <span class="req">*</span></label>
-      <input type="number" id="refeicoes_dia" name="refeicoes_dia" min="1" max="12" inputmode="numeric">
-      <p class="msg-erro">Informe um número entre 1 e 12.</p>
-    </div>
-
-    <div class="campo" data-req data-grupo="consome_alcool">
-      <label class="q">23. Consome álcool? <span class="req">*</span></label>
-      <div class="opcoes">
-        <label class="op"><input type="radio" name="consome_alcool" value="Sim"><span>Sim</span></label>
-        <label class="op"><input type="radio" name="consome_alcool" value="Não"><span>Não</span></label>
-        <label class="op"><input type="radio" name="consome_alcool" value="Socialmente"><span>Socialmente</span></label>
-      </div>
-      <p class="msg-erro">Selecione uma opção.</p>
-    </div>
-
-    <div class="campo" data-req data-grupo="fuma">
-      <label class="q">24. Fuma? <span class="req">*</span></label>
-      <div class="opcoes">
-        <label class="op"><input type="radio" name="fuma" value="Sim"><span>Sim</span></label>
-        <label class="op"><input type="radio" name="fuma" value="Não"><span>Não</span></label>
-      </div>
-      <p class="msg-erro">Selecione uma opção.</p>
-    </div>
-
-    <div class="campo" data-req>
-      <label class="q" for="sono_horas">25. Como está seu sono? (horas por noite) <span class="req">*</span></label>
-      <input type="text" id="sono_horas" name="sono_horas" placeholder="Ex: 6 a 7 horas, sono leve">
-      <p class="msg-erro">Preencha este campo.</p>
-    </div>
-
-    <div class="campo" data-req data-grupo="nivel_estresse">
-      <label class="q">26. Nível de estresse diário <span class="req">*</span></label>
-      <div class="opcoes">
-        <label class="op"><input type="radio" name="nivel_estresse" value="Baixo"><span>Baixo</span></label>
-        <label class="op"><input type="radio" name="nivel_estresse" value="Médio"><span>Médio</span></label>
-        <label class="op"><input type="radio" name="nivel_estresse" value="Alto"><span>Alto</span></label>
-      </div>
-      <p class="msg-erro">Selecione uma opção.</p>
-    </div>
-
-    <div class="campo" data-req data-grupo="postura_trabalho">
-      <label class="q">27. Trabalha sentado(a) ou em pé? <span class="req">*</span></label>
-      <div class="opcoes">
-        <label class="op"><input type="radio" name="postura_trabalho" value="Sentado"><span>Sentado</span></label>
-        <label class="op"><input type="radio" name="postura_trabalho" value="Em pé"><span>Em pé</span></label>
-        <label class="op"><input type="radio" name="postura_trabalho" value="Misto"><span>Misto</span></label>
-      </div>
-      <p class="msg-erro">Selecione uma opção.</p>
-    </div>
-  </section>
-
-  <!-- ============ BLOCO 6 ============ -->
-  <section class="bloco">
-    <div class="bloco-head"><span class="bloco-num">Bloco 06</span><h2>Avaliação e estrutura</h2></div>
-
-    <div class="campo" data-req>
-      <label class="q" for="peso_kg">28. Peso atual (kg) <span class="req">*</span></label>
-      <input type="number" id="peso_kg" name="peso_kg" min="20" max="400" step="0.1" inputmode="decimal" placeholder="Ex: 82.5">
-      <p class="msg-erro">Informe um peso entre 20 e 400 kg.</p>
-    </div>
-
-    <div class="campo" data-req>
-      <label class="q" for="altura_m">29. Altura (m) <span class="req">*</span></label>
-      <input type="number" id="altura_m" name="altura_m" min="0.9" max="2.5" step="0.01" inputmode="decimal" placeholder="Ex: 1.75">
-      <p class="msg-erro">Informe a altura em metros (ex: 1.75).</p>
-    </div>
-
-    <div class="campo" data-req data-grupo="fez_avaliacao_fisica">
-      <label class="q">30. Já fez avaliação física? <span class="req">*</span></label>
-      <div class="opcoes">
-        <label class="op"><input type="radio" name="fez_avaliacao_fisica" value="Sim"><span>Sim</span></label>
-        <label class="op"><input type="radio" name="fez_avaliacao_fisica" value="Não"><span>Não</span></label>
-      </div>
-      <p class="msg-erro">Selecione uma opção.</p>
-    </div>
-
-    <div class="campo" data-req data-grupo="enviar_fotos">
-      <label class="q">31. Pretende enviar fotos para acompanhamento? <span class="req">*</span></label>
-      <div class="opcoes">
-        <label class="op"><input type="radio" name="enviar_fotos" value="Sim"><span>Sim</span></label>
-        <label class="op"><input type="radio" name="enviar_fotos" value="Não"><span>Não</span></label>
-      </div>
-      <p class="msg-erro">Selecione uma opção.</p>
-    </div>
-
-    <div class="campo" data-req data-grupo="local_treino">
-      <label class="q">32. Treina em academia, casa ou condomínio? <span class="req">*</span></label>
-      <div class="opcoes">
-        <label class="op"><input type="radio" name="local_treino" value="Academia"><span>Academia</span></label>
-        <label class="op"><input type="radio" name="local_treino" value="Casa"><span>Casa</span></label>
-        <label class="op"><input type="radio" name="local_treino" value="Condomínio"><span>Condomínio</span></label>
-      </div>
-      <p class="msg-erro">Selecione uma opção.</p>
-    </div>
-
-    <div class="campo" data-req>
-      <label class="q" for="equipamentos_disponiveis">33. Quais equipamentos tem disponível? <span class="req">*</span></label>
-      <input type="text" id="equipamentos_disponiveis" name="equipamentos_disponiveis" placeholder="Ex: halteres, elásticos, esteira / academia completa">
-      <p class="msg-erro">Preencha este campo.</p>
-    </div>
-  </section>
-
-  <!-- ============ BLOCO 7 ============ -->
-  <section class="bloco">
-    <div class="bloco-head"><span class="bloco-num">Bloco 07</span><h2>Agenda e modalidade</h2></div>
-
-    <div class="campo" data-req data-grupo="dias_treino" data-check>
-      <label class="q">34. Selecione os dias que consegue treinar <span class="req">*</span></label>
-      <p class="hint">Marque todas que se aplicam.</p>
-      <div class="opcoes">
-        <label class="op"><input type="checkbox" name="dias_treino" value="Segunda"><span>Segunda</span></label>
-        <label class="op"><input type="checkbox" name="dias_treino" value="Terça"><span>Terça</span></label>
-        <label class="op"><input type="checkbox" name="dias_treino" value="Quarta"><span>Quarta</span></label>
-        <label class="op"><input type="checkbox" name="dias_treino" value="Quinta"><span>Quinta</span></label>
-        <label class="op"><input type="checkbox" name="dias_treino" value="Sexta"><span>Sexta</span></label>
-        <label class="op"><input type="checkbox" name="dias_treino" value="Sábado"><span>Sábado</span></label>
-        <label class="op"><input type="checkbox" name="dias_treino" value="Domingo"><span>Domingo</span></label>
-      </div>
-      <p class="msg-erro">Marque pelo menos um dia.</p>
-    </div>
-
-    <div class="campo" data-req data-grupo="horario_treino" data-check>
-      <label class="q">35. Melhor horário para treinar <span class="req">*</span></label>
-      <p class="hint">Marque todas que se aplicam.</p>
-      <div class="opcoes">
-        <label class="op"><input type="checkbox" name="horario_treino" value="Manhã"><span>Manhã</span></label>
-        <label class="op"><input type="checkbox" name="horario_treino" value="Tarde"><span>Tarde</span></label>
-        <label class="op"><input type="checkbox" name="horario_treino" value="Noite"><span>Noite</span></label>
-      </div>
-      <p class="msg-erro">Marque pelo menos um horário.</p>
-    </div>
-
-    <div class="campo" data-req data-grupo="modalidade">
-      <label class="q">36. Deseja acompanhamento em qual modalidade? <span class="req">*</span></label>
-      <div class="opcoes">
-        <label class="op"><input type="radio" name="modalidade" value="Online"><span>Online</span></label>
-        <label class="op"><input type="radio" name="modalidade" value="Presencial"><span>Presencial</span></label>
-        <label class="op"><input type="radio" name="modalidade" value="Ambos"><span>Ambos</span></label>
-      </div>
-      <p class="msg-erro">Selecione uma opção.</p>
-    </div>
-  </section>
-
-  <!-- ============ Consentimento (LGPD) ============ -->
-  <section class="bloco">
-    <label class="consent">
-      <input type="checkbox" id="consentimento" name="consentimento">
-      <p><strong>Autorizo o uso destes dados</strong> exclusivamente para a montagem e acompanhamento do meu treino. Sei que posso pedir a exclusão dos meus dados a qualquer momento. (Dados de saúde são dados sensíveis pela LGPD.)</p>
-    </label>
-    <p class="msg-erro" id="erroConsent" style="margin-top:8px">Você precisa autorizar o uso dos dados para enviar.</p>
-  </section>
-
-  <div class="acao">
-    <button type="submit" class="enviar" id="btnEnviar">Enviar ficha</button>
-    <div class="status" id="statusMsg"></div>
+<footer>
+  <div class="wrap foot-flex">
+    <div class="foot-brand" id="footBrand">—</div>
+    <div class="contatos" id="footContatos"></div>
   </div>
-
-</form>
-</main>
+</footer>
 
 <script>
 /* =========================================================
-   ⚙️  CONFIGURAÇÃO — PREENCHA ESTAS 2 LINHAS
-   =========================================================
-   Onde achar: Supabase > Settings > API
-     SUPABASE_URL      = "Project URL"
-     SUPABASE_ANON_KEY = "anon public"  (NUNCA a service_role)
+   ⚙️ CONFIGURAÇÃO
+   Supabase > Settings > API. A chave publishable/anon é
+   pública por natureza — quem protege o dado é o RLS.
    ========================================================= */
 const SUPABASE_URL      = "https://sloamqnvbstpihfzsfqk.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_tyCGNNaJeiD39y9fVPBmGg_nC2Oonev";
 
-/* Cliente padrão, caso a URL venha sem ?c=  */
-const SLUG_PADRAO = "tc-fitness";
-/* ========================================================= */
+const DIAS_ALERTA = 30;   // dias sem análise para acender o alerta
 
+/* Domínio técnico interno. O treinador NUNCA vê isto.
+   Ele digita só o login (o slug do cliente) e a senha.
+   O Auth continua por baixo — é ele que emite o token
+   que faz o RLS separar um cliente do outro. */
+const DOMINIO_LOGIN = "@painel.local";
+/* ========================================================= */
 
 const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-const form       = document.getElementById('fichaForm');
-const fill       = document.getElementById('progressFill');
-const label      = document.getElementById('progressLabel');
-const statusMsg  = document.getElementById('statusMsg');
-const btn        = document.getElementById('btnEnviar');
-const boot       = document.getElementById('boot');
+let CLIENTE = null;    // vem de meu_tema()
+let alunos  = [];      // vem de fichas_cadastrais
+let filtroAtivo = 'todos';
+let termoBusca  = '';
+let alunoAberto = null;
 
-let CLIENTE = null;   // preenchido pelo carregarCliente()
+const lista   = document.getElementById('lista');
+const vazio   = document.getElementById('vazio');
+const overlay = document.getElementById('overlay');
+const carregando = document.getElementById('carregando');
 
 
 /* =========================================================
-   1. CARREGA O CLIENTE (tema + logo) ANTES DE MOSTRAR O FORM
+   HELPERS
    ========================================================= */
-function slugDaUrl() {
-  return new URLSearchParams(location.search).get('c') || SLUG_PADRAO;
-}
+const fmtData = d => {
+  if (!d) return '—';
+  const [a, m, dia] = String(d).slice(0,10).split('-');
+  return `${dia}/${m}/${a}`;
+};
+const diasDesde = d => d ? Math.floor((Date.now() - new Date(d + 'T12:00:00')) / 86400000) : Infinity;
+const analiseAtrasada = a => a.ativo && diasDesde(a.ultima_analise) > DIAS_ALERTA;
+const respostaAlerta = v => v && !/^n[ãa]o$/i.test(String(v).trim());
+const soNumeros = s => (s || '').replace(/\D/g, '');
+const esc = s => String(s ?? '—').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
+
+/* =========================================================
+   1. LOGIN
+   ========================================================= */
+document.getElementById('formLogin').addEventListener('submit', async e => {
+  e.preventDefault();
+  const btn  = document.getElementById('btnLogin');
+  const erro = document.getElementById('loginErro');
+  erro.classList.remove('mostrar');
+  btn.disabled = true;
+  btn.textContent = 'Entrando...';
+
+  // o login digitado é o slug do cliente; vira e-mail técnico aqui
+  const slug  = document.getElementById('loginSlug').value.trim().toLowerCase();
+  const senha = document.getElementById('loginSenha').value;
+  const email = slug + DOMINIO_LOGIN;
+
+  const { error } = await db.auth.signInWithPassword({ email, password: senha });
+
+  if (error) {
+    erro.textContent = error.message.includes('Invalid login')
+      ? 'Login ou senha incorretos.'
+      : 'Não foi possível entrar. Tente de novo.';
+    erro.classList.add('mostrar');
+    btn.disabled = false;
+    btn.textContent = 'Entrar';
+    return;
+  }
+  await iniciarPainel();
+});
+
+document.getElementById('btnSair').addEventListener('click', async () => {
+  await db.auth.signOut();
+  location.reload();
+});
+
+
+/* =========================================================
+   2. TEMA E LOGO — tudo vem da tabela `clientes`
+   ========================================================= */
 function aplicarTema(c) {
   const r = document.documentElement.style;
   r.setProperty('--primaria', c.cor_primaria);
@@ -576,305 +372,352 @@ function aplicarTema(c) {
   r.setProperty('--err',      c.cor_erro);
 
   document.getElementById('tagCliente').textContent = c.nome;
-  document.title = `Ficha Cadastral — ${c.nome}`;
+  document.getElementById('footBrand').textContent  = c.nome;
+  document.title = `Gestão de Alunos — ${c.nome}`;
 
+  // logo: fundo branco vai dentro do card, transparente vai solto
   if (c.logo_url) {
-    // logo com fundo branco vai dentro do card; transparente vai solto
     const alvo = (c.logo_fundo === 'transparente') ? 'logoSolto' : 'logoCard';
     const img  = (alvo === 'logoSolto') ? 'logoImg2' : 'logoImg1';
     document.getElementById(img).src = c.logo_url;
     document.getElementById(img).alt = c.logo_alt || c.nome;
     document.getElementById(alvo).classList.add('mostrar');
-  }
-}
 
-function bootErro(titulo, texto) {
-  boot.classList.add('falhou');
-  boot.querySelector('.txt').style.display = 'none';
-  const box = document.getElementById('bootErro');
-  box.style.display = 'block';
-  box.innerHTML = `<h2>${titulo}</h2><p>${texto}</p>`;
-}
-
-async function carregarCliente() {
-  const slug = slugDaUrl();
-  try {
-    const { data, error } = await db.rpc('cliente_por_slug', { p_slug: slug });
-    if (error) throw error;
-
-    if (!data || data.length === 0) {
-      bootErro('Formulário indisponível',
-        `Não encontramos o cadastro de "${slug}". Confira o link ou fale com seu treinador.`);
-      return;
-    }
-    CLIENTE = data[0];
-    aplicarTema(CLIENTE);
-    boot.classList.add('sumiu');
-  } catch (err) {
-    console.error(err);
-    bootErro('Erro de conexão',
-      'Não foi possível carregar o formulário. Verifique sua internet e recarregue a página.');
-  }
-}
-
-
-/* =========================================================
-   2. USABILIDADE
-   ========================================================= */
-document.getElementById('data_nascimento').addEventListener('change', e => {
-  const d = new Date(e.target.value);
-  if (isNaN(d)) return;
-  const hoje = new Date();
-  let idade = hoje.getFullYear() - d.getFullYear();
-  const m = hoje.getMonth() - d.getMonth();
-  if (m < 0 || (m === 0 && hoje.getDate() < d.getDate())) idade--;
-  if (idade > 0 && idade < 120) document.getElementById('idade').value = idade;
-  atualizarProgresso();
-});
-
-document.getElementById('whatsapp').addEventListener('input', e => {
-  let v = e.target.value.replace(/\D/g, '').slice(0, 11);
-  if (v.length > 7)      v = `(${v.slice(0,2)}) ${v.slice(2,7)}-${v.slice(7)}`;
-  else if (v.length > 2) v = `(${v.slice(0,2)}) ${v.slice(2)}`;
-  e.target.value = v;
-});
-
-const campos = [...document.querySelectorAll('.campo[data-req]')];
-
-function campoPreenchido(campo) {
-  const grupo = campo.dataset.grupo;
-  if (grupo) return !!campo.querySelector(`input[name="${grupo}"]:checked`);
-  const input = campo.querySelector('input');
-  return input && input.value.trim() !== '';
-}
-
-/* ---------- Motor de perguntas condicionais ----------
-   Uso no HTML:
-     data-depende="nome_da_pergunta"  -> de quem depende
-     data-valor="Sim"                 -> aparece quando a resposta for isso
-     data-se-oculto="Nunca treinou"   -> o que mandar pro banco se ficar escondida
-   Para criar outra condicional, é só marcar a div .campo. Nada de JS novo.
-*/
-const condicionais = [...document.querySelectorAll('.campo[data-depende]')];
-
-function campoVisivel(campo) {
-  return !campo.classList.contains('oculto');
-}
-
-function aplicarCondicionais() {
-  condicionais.forEach(campo => {
-    const de       = campo.dataset.depende;
-    const esperado = campo.dataset.valor;
-    const marcado  = form.querySelector(`input[name="${de}"]:checked`);
-    const mostrar  = marcado && marcado.value === esperado;
-
-    campo.classList.toggle('oculto', !mostrar);
-
-    if (!mostrar) {
-      // limpa e tira o erro: pergunta escondida não pode travar o envio
-      campo.querySelectorAll('input').forEach(i => {
-        if (i.type === 'checkbox' || i.type === 'radio') i.checked = false;
-        else i.value = '';
-        i.classList.remove('invalido');
-      });
-      campo.classList.remove('erro');
-    }
-  });
-}
-
-// reavalia sempre que qualquer resposta muda
-form.addEventListener('change', () => { aplicarCondicionais(); atualizarProgresso(); });
-
-function atualizarProgresso() {
-  const ativos = campos.filter(campoVisivel);
-  const feitos = ativos.filter(campoPreenchido).length;
-  const pct = ativos.length ? Math.round((feitos / ativos.length) * 100) : 0;
-  fill.style.width = pct + '%';
-  label.textContent = pct + '%';
-}
-form.addEventListener('input',  atualizarProgresso);
-form.addEventListener('change', atualizarProgresso);
-
-
-/* =========================================================
-   3. VALIDAÇÃO
-   ========================================================= */
-function validar() {
-  let ok = true;
-  let primeiroErro = null;
-
-  campos.forEach(campo => {
-    // pergunta escondida não é validada
-    if (!campoVisivel(campo)) {
-      campo.classList.remove('erro');
-      return;
-    }
-
-    let valido = campoPreenchido(campo);
-
-    const email = campo.querySelector('input[type=email]');
-    if (email && valido) valido = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.value.trim());
-
-    const zap = campo.querySelector('#whatsapp');
-    if (zap && valido) valido = zap.value.replace(/\D/g, '').length >= 10;
-
-    // faixas iguais às do banco — evita o insert ser rejeitado lá
-    const num = campo.querySelector('input[type=number]');
-    if (num && valido) {
-      const v = Number(num.value);
-      const min = num.min ? Number(num.min) : -Infinity;
-      const max = num.max ? Number(num.max) : Infinity;
-      valido = !isNaN(v) && v >= min && v <= max;
-    }
-
-    campo.classList.toggle('erro', !valido);
-    const input = campo.querySelector('input[type=text],input[type=email],input[type=tel],input[type=date],input[type=number]');
-    if (input) input.classList.toggle('invalido', !valido);
-
-    if (!valido) { ok = false; primeiroErro = primeiroErro || campo; }
-  });
-
-  const consent = document.getElementById('consentimento');
-  const erroConsent = document.getElementById('erroConsent');
-  if (!consent.checked) {
-    erroConsent.style.display = 'block';
-    ok = false;
-    primeiroErro = primeiroErro || consent.closest('.bloco');
-  } else {
-    erroConsent.style.display = 'none';
+    const ll = document.getElementById('loginLogo');
+    ll.src = c.logo_url; ll.alt = c.logo_alt || c.nome;
+    ll.classList.add('mostrar');
   }
 
-  if (primeiroErro) primeiroErro.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  return ok;
+  // rodapé com os contatos do cliente
+  const fc = document.getElementById('footContatos');
+  fc.innerHTML = '';
+  if (c.whatsapp)  fc.innerHTML += `<a href="https://wa.me/${soNumeros(c.whatsapp)}" target="_blank" rel="noopener">📱 ${esc(c.whatsapp)}</a>`;
+  if (c.instagram) fc.innerHTML += `<a href="https://instagram.com/${esc(c.instagram)}" target="_blank" rel="noopener">📸 @${esc(c.instagram)}</a>`;
+  if (c.email)     fc.innerHTML += `<a href="mailto:${esc(c.email)}">✉️ ${esc(c.email)}</a>`;
 }
 
 
 /* =========================================================
-   4. PAYLOAD — chaves iguais às colunas da tabela
+   3. CARREGAR ALUNOS
+   O RLS já filtra pelo cliente do login. Não precisa de
+   .eq('cliente_id', ...) aqui — e é justamente por isso
+   que a segurança não depende deste arquivo.
    ========================================================= */
-function montarPayload() {
-  const fd = new FormData(form);
-  const pega     = n => (fd.get(n) || '').toString().trim();
-  const pegaTodos = n => fd.getAll(n).map(String);
+async function carregarAlunos() {
+  carregando.style.display = 'block';
+  lista.innerHTML = '';
+  vazio.style.display = 'none';
 
-  // Campo condicional escondido não vem no FormData (está vazio).
-  // Como a coluna é NOT NULL no banco, mandamos o texto do
-  // data-se-oculto. Assim o painel mostra "Nunca treinou" em vez
-  // de um campo em branco sem explicação.
-  const fallback = {};
-  condicionais.forEach(campo => {
-    if (!campoVisivel(campo) && campo.dataset.seOculto) {
-      const input = campo.querySelector('input[name]');
-      if (input) fallback[input.name] = campo.dataset.seOculto;
-    }
-  });
-  const pegaCond = n => fallback[n] ?? pega(n);
+  const { data, error } = await db
+    .from('fichas_cadastrais')
+    .select('*')
+    .order('criado_em', { ascending: false });
 
-  return {
-    cliente_id: CLIENTE.id,          // <- é isto que separa um cliente do outro
+  carregando.style.display = 'none';
 
-    nome_completo: pega('nome_completo'),
-    data_nascimento: pega('data_nascimento'),
-    idade: Number(pega('idade')),
-    profissao: pega('profissao'),
-    whatsapp: pega('whatsapp'),
-    email: pega('email').toLowerCase(),
-
-    ja_treinou: pega('ja_treinou'),
-    tempo_treino_ou_parado: pegaCond('tempo_treino_ou_parado'),
-    teve_acompanhamento: pega('teve_acompanhamento'),
-    outra_atividade: pega('outra_atividade'),
-
-    lesao_ou_dor: pega('lesao_ou_dor'),
-    doenca_diagnosticada: pega('doenca_diagnosticada'),
-    medicamento_continuo: pega('medicamento_continuo'),
-    cirurgia: pega('cirurgia'),
-    dor_ao_movimento: pega('dor_ao_movimento'),
-    liberacao_medica: pega('liberacao_medica'),
-
-    objetivo_principal: pega('objetivo_principal'),
-    prazo_objetivo: pega('prazo_objetivo'),
-    maior_dificuldade: pega('maior_dificuldade'),
-
-    alimentacao_atual: pega('alimentacao_atual'),
-    acompanhamento_nutricionista: pega('acompanhamento_nutricionista'),
-    refeicoes_dia: Number(pega('refeicoes_dia')),
-    consome_alcool: pega('consome_alcool'),
-    fuma: pega('fuma'),
-    sono_horas: pega('sono_horas'),
-    nivel_estresse: pega('nivel_estresse'),
-    postura_trabalho: pega('postura_trabalho'),
-
-    peso_kg: Number(pega('peso_kg')),
-    altura_m: Number(pega('altura_m')),
-    fez_avaliacao_fisica: pega('fez_avaliacao_fisica'),
-    enviar_fotos: pega('enviar_fotos'),
-    local_treino: pega('local_treino'),
-    equipamentos_disponiveis: pega('equipamentos_disponiveis'),
-
-    dias_treino: pegaTodos('dias_treino'),
-    horario_treino: pegaTodos('horario_treino'),
-    modalidade: pega('modalidade'),
-
-    consentimento_lgpd: true,
-    consentimento_em: new Date().toISOString()
-
-    // fechou / ativo / ultima_analise / observacoes:
-    // NÃO mandamos de propósito. A policy do banco só aceita
-    // o insert se eles vierem no default. Quem mexe é o painel.
-  };
-}
-
-
-/* =========================================================
-   5. ENVIO
-   ========================================================= */
-form.addEventListener('submit', async e => {
-  e.preventDefault();
-  statusMsg.className = 'status';
-
-  if (!CLIENTE) {
-    statusMsg.className = 'status falha';
-    statusMsg.textContent = 'O formulário ainda não carregou. Recarregue a página.';
+  if (error) {
+    console.error(error);
+    vazio.style.display = 'block';
+    vazio.innerHTML = '<strong>Erro ao carregar</strong>Recarregue a página. Se persistir, verifique sua conexão.';
     return;
   }
-  if (!validar()) return;
+  alunos = data || [];
+  renderStats();
+  renderLista();
+}
+
+
+/* =========================================================
+   4. INICIAR PAINEL (depois do login)
+   ========================================================= */
+async function iniciarPainel() {
+  const { data: tema, error } = await db.rpc('meu_tema');
+
+  if (error || !tema || tema.length === 0) {
+    const erro = document.getElementById('loginErro');
+    erro.textContent = 'Seu login não está vinculado a nenhum cliente. Fale com o administrador.';
+    erro.classList.add('mostrar');
+    document.getElementById('btnLogin').disabled = false;
+    document.getElementById('btnLogin').textContent = 'Entrar';
+    await db.auth.signOut();
+    return;
+  }
+
+  CLIENTE = tema[0];
+  aplicarTema(CLIENTE);
+
+  const { data: { user } } = await db.auth.getUser();
+  // esconde o domínio técnico: mostra só o login
+  document.getElementById('usuarioEmail').textContent =
+    (user?.email || '').replace(DOMINIO_LOGIN, '');
+
+  document.getElementById('telaLogin').classList.add('sumiu');
+  await carregarAlunos();
+}
+
+
+/* =========================================================
+   5. LISTA E FILTROS
+   ========================================================= */
+function renderStats() {
+  document.getElementById('stTotal').textContent     = alunos.length;
+  document.getElementById('stFecharam').textContent  = alunos.filter(a => a.fechou).length;
+  document.getElementById('stAtivos').textContent    = alunos.filter(a => a.ativo).length;
+  document.getElementById('stAtrasados').textContent = alunos.filter(analiseAtrasada).length;
+}
+
+function filtrar() {
+  return alunos.filter(a => {
+    const t = termoBusca.toLowerCase();
+    const bateBusca = !t ||
+      (a.nome_completo || '').toLowerCase().includes(t) ||
+      (a.email || '').toLowerCase().includes(t) ||
+      soNumeros(a.whatsapp).includes(soNumeros(t) || '§');
+    if (!bateBusca) return false;
+    switch (filtroAtivo) {
+      case 'fechou':     return a.fechou;
+      case 'nao_fechou': return !a.fechou;
+      case 'ativo':      return a.ativo;
+      case 'inativo':    return !a.ativo;
+      case 'atrasado':   return analiseAtrasada(a);
+      default:           return true;
+    }
+  });
+}
+
+function renderLista() {
+  const itens = filtrar();
+  lista.innerHTML = '';
+  vazio.style.display = itens.length ? 'none' : 'block';
+
+  itens.forEach(a => {
+    const el = document.createElement('div');
+    el.className = 'aluno' + (a.ativo ? ' at' : '');
+    el.innerHTML = `
+      <div>
+        <div class="nome">${esc(a.nome_completo)}</div>
+        <div class="sub">
+          <span>🎯 ${esc(a.objetivo_principal)}</span>
+          <span>📱 ${esc(a.whatsapp)}</span>
+          <span>📅 Última análise: ${fmtData(a.ultima_analise)}</span>
+        </div>
+      </div>
+      <div class="badges">
+        <span class="badge ${a.fechou ? 'b-fechou' : 'b-nao-fechou'}">${a.fechou ? 'Fechou' : 'Não fechou'}</span>
+        <span class="badge ${a.ativo ? 'b-ativo' : 'b-inativo'}">${a.ativo ? 'Ativo' : 'Inativo'}</span>
+        ${analiseAtrasada(a) ? '<span class="badge b-atrasado">Análise atrasada</span>' : ''}
+      </div>`;
+    el.addEventListener('click', () => abrirModal(a));
+    lista.appendChild(el);
+  });
+}
+
+
+/* =========================================================
+   6. MODAL DO ALUNO
+   ========================================================= */
+function abrirModal(a) {
+  alunoAberto = a;
+  document.getElementById('mNome').textContent = a.nome_completo;
+
+  const dado = (k, v, alerta = false) =>
+    `<div class="dado ${alerta && respostaAlerta(v) ? 'alerta-saude' : ''}">
+       <span class="k">${k}</span><span class="v">${esc(v)}</span>
+     </div>`;
+
+  // o IMC é coluna calculada no banco; se vier nulo, calcula na hora
+  const imc = a.imc ?? (a.peso_kg && a.altura_m ? (a.peso_kg / (a.altura_m ** 2)).toFixed(1) : '—');
+  const zapLink = 'https://wa.me/55' + soNumeros(a.whatsapp);
+
+  document.getElementById('mBody').innerHTML = `
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px">
+      <a class="zap-btn" style="margin-bottom:0" href="${zapLink}" target="_blank" rel="noopener">💬 Chamar no WhatsApp</a>
+      <a class="treino-btn" href="treino.html?ficha=${a.id}">🏋️ Treinos</a>
+    </div>
+
+    <div class="gestao">
+      <h3>Gestão do aluno</h3>
+      <div class="gestao-grid">
+        <div class="g-item">
+          <span class="g-lbl">Fechou consultoria?</span>
+          <div class="toggle" id="tgFechou">
+            <button data-v="true"  class="${a.fechou ? 'sel-destaque' : ''}">Fechou</button>
+            <button data-v="false" class="${!a.fechou ? 'sel-laranja' : ''}">Não fechou</button>
+          </div>
+        </div>
+        <div class="g-item">
+          <span class="g-lbl">Status do aluno</span>
+          <div class="toggle" id="tgAtivo">
+            <button data-v="true"  class="${a.ativo ? 'sel-destaque' : ''}">Ativo</button>
+            <button data-v="false" class="${!a.ativo ? 'sel-cinza' : ''}">Inativo</button>
+          </div>
+        </div>
+        <div class="g-item">
+          <span class="g-lbl">Data da última análise</span>
+          <input type="date" id="inpAnalise" value="${a.ultima_analise ? String(a.ultima_analise).slice(0,10) : ''}">
+        </div>
+      </div>
+      <div class="g-item" style="margin-top:14px">
+        <span class="g-lbl">Observações internas (o aluno não vê)</span>
+        <textarea id="inpObs" placeholder="Ex: prefere treino curto, viaja toda quinta...">${esc(a.observacoes || '').replace(/—/g,'')}</textarea>
+      </div>
+      <button class="salvar" id="btnSalvar">Salvar alterações</button>
+      <p class="salvo-msg" id="salvoMsg"></p>
+    </div>
+
+    <div class="secao">
+      <h4>Contato e perfil</h4>
+      ${dado('WhatsApp', a.whatsapp)}
+      ${dado('E-mail', a.email)}
+      ${dado('Idade', a.idade ? a.idade + ' anos' : '—')}
+      ${dado('Nascimento', fmtData(a.data_nascimento))}
+      ${dado('Profissão', a.profissao)}
+      ${dado('Ficha recebida em', fmtData(a.criado_em))}
+    </div>
+
+    <div class="secao">
+      <h4>Objetivo e treino</h4>
+      ${dado('Objetivo principal', a.objetivo_principal)}
+      ${dado('Prazo esperado', a.prazo_objetivo)}
+      ${dado('Maior dificuldade', a.maior_dificuldade)}
+      ${dado('Já treinou', `${a.ja_treinou} — ${a.tempo_treino_ou_parado}`)}
+      ${dado('Teve acompanhamento', a.teve_acompanhamento)}
+      ${dado('Outra atividade', a.outra_atividade)}
+      ${dado('Local de treino', a.local_treino)}
+      ${dado('Equipamentos', a.equipamentos_disponiveis)}
+      ${dado('Dias disponíveis', (a.dias_treino || []).join(', '))}
+      ${dado('Horário', (a.horario_treino || []).join(', '))}
+      ${dado('Modalidade', a.modalidade)}
+    </div>
+
+    <div class="secao">
+      <h4>Saúde ⚠️</h4>
+      ${dado('Lesão ou dor', a.lesao_ou_dor, true)}
+      ${dado('Doença diagnosticada', a.doenca_diagnosticada, true)}
+      ${dado('Medicamento contínuo', a.medicamento_continuo, true)}
+      ${dado('Cirurgia', a.cirurgia, true)}
+      ${dado('Dor em movimento', a.dor_ao_movimento, true)}
+      ${dado('Liberação médica', a.liberacao_medica)}
+    </div>
+
+    <div class="secao">
+      <h4>Medidas e hábitos</h4>
+      ${dado('Peso', a.peso_kg ? a.peso_kg + ' kg' : '—')}
+      ${dado('Altura', a.altura_m ? a.altura_m + ' m' : '—')}
+      ${dado('IMC', imc)}
+      ${dado('Alimentação', a.alimentacao_atual)}
+      ${dado('Nutricionista', a.acompanhamento_nutricionista)}
+      ${dado('Refeições/dia', a.refeicoes_dia)}
+      ${dado('Álcool', a.consome_alcool)}
+      ${dado('Fuma', a.fuma)}
+      ${dado('Sono', a.sono_horas)}
+      ${dado('Estresse', a.nivel_estresse)}
+      ${dado('Trabalho', a.postura_trabalho)}
+      ${dado('Avaliação física', a.fez_avaliacao_fisica)}
+      ${dado('Envia fotos', a.enviar_fotos)}
+    </div>
+  `;
+
+  configurarToggle('tgFechou', 'sel-destaque', 'sel-laranja');
+  configurarToggle('tgAtivo',  'sel-destaque', 'sel-cinza');
+  document.getElementById('btnSalvar').addEventListener('click', salvarAlteracoes);
+
+  overlay.classList.add('aberto');
+  document.body.style.overflow = 'hidden';
+}
+
+function configurarToggle(id, classeSim, classeNao) {
+  const box = document.getElementById(id);
+  box.querySelectorAll('button').forEach(b => {
+    b.addEventListener('click', () => {
+      box.querySelectorAll('button').forEach(x => x.className = '');
+      b.className = b.dataset.v === 'true' ? classeSim : classeNao;
+    });
+  });
+}
+
+function lerToggle(id) {
+  const sel = document.querySelector(`#${id} button[class]`);
+  return sel ? sel.dataset.v === 'true' : false;
+}
+
+
+/* =========================================================
+   7. SALVAR (UPDATE no banco)
+   ========================================================= */
+async function salvarAlteracoes() {
+  const a   = alunoAberto;
+  const btn = document.getElementById('btnSalvar');
+  const msg = document.getElementById('salvoMsg');
+  msg.className = 'salvo-msg';
+
+  const mudancas = {
+    fechou: lerToggle('tgFechou'),
+    ativo:  lerToggle('tgAtivo'),
+    ultima_analise: document.getElementById('inpAnalise').value || null,
+    observacoes: document.getElementById('inpObs').value.trim() || null
+  };
 
   btn.disabled = true;
-  btn.textContent = 'Enviando...';
+  btn.textContent = 'Salvando...';
 
-  try {
-    const { error } = await db
-      .from('fichas_cadastrais')
-      .insert(montarPayload());
+  const { error } = await db
+    .from('fichas_cadastrais')
+    .update(mudancas)
+    .eq('id', a.id);
 
-    if (error) throw error;
+  btn.disabled = false;
+  btn.textContent = 'Salvar alterações';
 
-    // sucesso: esconde o form e mostra a tela de confirmação
-    document.getElementById('areaForm').style.display = 'none';
-    document.getElementById('progressShell').style.display = 'none';
-    document.getElementById('sucessoTxt').textContent =
-      `${CLIENTE.nome} vai entrar em contato pelo seu WhatsApp em breve.`;
-    document.getElementById('sucesso').classList.add('mostrar');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-
-  } catch (err) {
-    console.error(err);
-    statusMsg.className = 'status falha';
-    statusMsg.textContent = err.message?.includes('duplicate')
-      ? 'Parece que você já enviou uma ficha com este e-mail.'
-      : 'Não foi possível enviar. Verifique sua conexão e tente de novo.';
-  } finally {
-    btn.disabled = false;
-    btn.textContent = 'Enviar ficha';
+  if (error) {
+    console.error(error);
+    msg.className = 'salvo-msg falha';
+    msg.textContent = '✕ Não foi possível salvar. Tente de novo.';
+    return;
   }
+
+  Object.assign(a, mudancas);   // atualiza a lista local
+  msg.className = 'salvo-msg ok';
+  msg.textContent = '✓ Alterações salvas';
+  setTimeout(() => msg.className = 'salvo-msg', 2200);
+  renderStats();
+  renderLista();
+}
+
+
+/* =========================================================
+   8. FECHAR MODAL / BUSCA / FILTROS
+   ========================================================= */
+function fecharModal() {
+  overlay.classList.remove('aberto');
+  document.body.style.overflow = '';
+  alunoAberto = null;
+}
+document.getElementById('btnFechar').addEventListener('click', fecharModal);
+overlay.addEventListener('click', e => { if (e.target === overlay) fecharModal(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') fecharModal(); });
+
+document.getElementById('busca').addEventListener('input', e => {
+  termoBusca = e.target.value.trim();
+  renderLista();
+});
+document.querySelectorAll('.chip').forEach(c => {
+  c.addEventListener('click', () => {
+    document.querySelectorAll('.chip').forEach(x => x.classList.remove('on'));
+    c.classList.add('on');
+    filtroAtivo = c.dataset.filtro;
+    renderLista();
+  });
 });
 
 
-/* ---------- Start ---------- */
-carregarCliente();
-aplicarCondicionais();
-atualizarProgresso();
+/* =========================================================
+   9. START — se já tem sessão salva, entra direto
+   ========================================================= */
+(async () => {
+  const { data: { session } } = await db.auth.getSession();
+  if (session) await iniciarPainel();
+})();
 </script>
 </body>
 </html>
