@@ -148,6 +148,49 @@
   .offline-bar.on{display:block}
   .pend-bar{background:#5C7183}
 
+
+  /* ===== MODO TREINO GUIADO (estilo Tecnofit) ===== */
+  #guiado{position:fixed;inset:0;z-index:70;background:var(--escura);color:#fff;display:none;flex-direction:column}
+  #guiado.on{display:flex}
+  .g-top{padding:16px 18px 0;display:flex;align-items:center;justify-content:space-between;gap:12px}
+  .g-fechar{background:rgba(255,255,255,.14);border:none;color:#fff;width:38px;height:38px;border-radius:50%;font-size:1.1rem;cursor:pointer}
+  .g-contador{font-size:.85rem;opacity:.85;font-weight:700}
+  .g-progress{height:6px;background:rgba(255,255,255,.15);border-radius:999px;margin:14px 18px 0;overflow:hidden}
+  .g-progress .fill{height:100%;background:var(--destaque);border-radius:999px;transition:width .3s;width:0}
+  .g-corpo{flex:1;display:flex;flex-direction:column;justify-content:center;padding:24px 22px;overflow-y:auto}
+  .g-nome{font-size:2rem;font-weight:800;line-height:1.15;margin-bottom:6px}
+  .g-grupo{font-size:.9rem;opacity:.7;margin-bottom:24px}
+  .g-metas{display:flex;gap:12px;margin-bottom:22px;flex-wrap:wrap}
+  .g-meta{background:rgba(255,255,255,.1);border-radius:14px;padding:14px 18px;text-align:center;min-width:80px;flex:1}
+  .g-meta .v{font-size:1.6rem;font-weight:800;line-height:1}
+  .g-meta .l{font-size:.72rem;opacity:.7;margin-top:4px;text-transform:uppercase;letter-spacing:.05em}
+  .g-video{display:inline-flex;align-items:center;gap:7px;background:#FF0000;color:#fff;font-weight:700;padding:11px 18px;border-radius:12px;text-decoration:none;font-size:.9rem;align-self:flex-start}
+  .g-reg{margin-top:20px;background:rgba(255,255,255,.08);border-radius:14px;padding:14px}
+  .g-reg label{font-size:.75rem;opacity:.7;text-transform:uppercase;letter-spacing:.05em}
+  .g-reg-linha{display:flex;gap:8px;margin-top:8px}
+  .g-reg-linha input{flex:1;padding:11px;border:none;border-radius:9px;font-size:1rem;text-align:center;background:rgba(255,255,255,.92);color:var(--ink);min-width:0}
+  .g-bottom{padding:16px 18px calc(16px + env(safe-area-inset-bottom));display:flex;gap:10px}
+  .g-btn{flex:1;padding:16px;border:none;border-radius:14px;font-size:1.05rem;font-weight:800;cursor:pointer}
+  .g-btn.prev{flex:0 0 56px;background:rgba(255,255,255,.14);color:#fff}
+  .g-btn.next{background:var(--destaque);color:var(--escura)}
+
+  /* overlay do timer de descanso */
+  #descanso{position:fixed;inset:0;z-index:75;background:rgba(15,25,33,.97);color:#fff;display:none;flex-direction:column;align-items:center;justify-content:center;gap:8px}
+  #descanso.on{display:flex}
+  #descanso .rot{font-size:.9rem;opacity:.7;text-transform:uppercase;letter-spacing:.1em}
+  #descanso .num{font-size:5rem;font-weight:800;line-height:1;font-variant-numeric:tabular-nums}
+  .desc-ring{position:relative;width:220px;height:220px;margin:10px 0}
+  .desc-ring svg{transform:rotate(-90deg)}
+  .desc-ring .centro{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px}
+  .desc-acoes{display:flex;gap:10px;margin-top:14px}
+  .desc-acoes button{padding:12px 22px;border:none;border-radius:12px;font-weight:800;font-size:.95rem;cursor:pointer}
+  .desc-pular{background:var(--destaque);color:var(--escura)}
+  .desc-mais{background:rgba(255,255,255,.14);color:#fff}
+  .g-fim{text-align:center;padding:30px 22px}
+  .g-fim .emoji{font-size:3.5rem}
+  .g-fim h2{font-size:1.6rem;font-weight:800;margin:10px 0 6px}
+  .g-fim p{opacity:.8;margin-bottom:22px}
+
   @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 </head>
@@ -268,6 +311,36 @@
     <button class="btn-primary btn-outline" id="btnSolAcomp" style="margin-top:10px" onclick="solicitar('acompanhamento')">📅 Pedir dia de acompanhamento</button>
     <div class="msg" id="msgSol"></div>
     <div id="minhasSolicitacoes" style="margin-top:14px"></div>
+  </div>
+</div>
+
+
+<!-- ===== MODO TREINO GUIADO ===== -->
+<div id="guiado">
+  <div class="g-top">
+    <button class="g-fechar" onclick="fecharGuiado()">✕</button>
+    <div class="g-contador" id="gContador">1 de 1</div>
+    <div style="width:38px"></div>
+  </div>
+  <div class="g-progress"><div class="fill" id="gFill"></div></div>
+  <div class="g-corpo" id="gCorpo"></div>
+  <div class="g-bottom" id="gBottom"></div>
+</div>
+
+<!-- ===== TIMER DE DESCANSO ===== -->
+<div id="descanso">
+  <div class="rot">Descanso</div>
+  <div class="desc-ring">
+    <svg width="220" height="220" viewBox="0 0 220 220">
+      <circle cx="110" cy="110" r="100" fill="none" stroke="rgba(255,255,255,.15)" stroke-width="12"/>
+      <circle id="descArco" cx="110" cy="110" r="100" fill="none" stroke="var(--destaque)" stroke-width="12"
+              stroke-linecap="round" stroke-dasharray="628" stroke-dashoffset="0"/>
+    </svg>
+    <div class="centro"><div class="num" id="descNum">60</div></div>
+  </div>
+  <div class="desc-acoes">
+    <button class="desc-mais" onclick="descansoMais()">+15s</button>
+    <button class="desc-pular" onclick="descansoPular()">Pular ▶</button>
   </div>
 </div>
 
@@ -465,6 +538,9 @@ async function iniciar(){
   // envia o que ficou pendente offline
   enviarFila();
 
+  // registra o acesso (o banco decide se é aluno ou treinador)
+  db.rpc('registrar_acesso', { p_origem: 'app' }).then(function(){}, function(e){ console.warn('acesso:', e); });
+
   diaVendo = proximoDia();
   renderHoje(); renderTreino(); renderCheckin(); renderDados(); renderSolicitacoes();
 
@@ -522,8 +598,9 @@ function renderHoje(){
     '<div class="dia-hero"><div class="label">Hoje é o</div>' +
     '<div class="nome">Treino ' + diaVendo + '</div>' +
     '<div class="qtd">' + (nomeDoDia(diaVendo) ? esc(nomeDoDia(diaVendo)) + ' · ' : '') + doDia.length + ' exercícios</div></div>' +
+    '<button class="btn-primary btn-destaque" style="margin-bottom:10px" onclick="iniciarGuiado(\'' + diaVendo + '\')">▶ Iniciar treino guiado</button>' +
     doDia.map(exHTML).join('') +
-    '<button class="btn-primary btn-destaque" style="margin-top:4px" onclick="irPara(\'Checkin\')">✅ Registrar que treinei</button>';
+    '<button class="btn-primary" style="margin-top:4px;background:transparent;border:1.5px solid var(--line);color:var(--ink-soft)" onclick="irPara(\'Checkin\')">Registrar que treinei</button>';
 }
 
 function calcularStreak(){
@@ -804,6 +881,161 @@ function graficoPeso(pontos){
       '<div><b>'+fim.peso+' kg</b><span>'+fmtDia(fim.data)+'</span></div>' +
       '<div><b style="color:'+corDif+'">'+(dif>0?'+':'')+dif+' kg</b><span>variação</span></div>' +
     '</div>';
+}
+
+/* ================= MODO TREINO GUIADO ================= */
+let gLista = [], gIdx = 0, gDia = 'A';
+let descTimer = null, descRestante = 0, descTotal = 0, audioCtx = null;
+
+function iniciarGuiado(dia){
+  gDia = dia;
+  gLista = itens.filter(function(i){ return i.dia === dia; });
+  if(!gLista.length){ alert('Sem exercícios neste dia.'); return; }
+  gIdx = 0;
+  document.getElementById('guiado').classList.add('on');
+  document.body.style.overflow = 'hidden';
+  renderGuiado();
+}
+
+function fecharGuiado(){
+  if(descTimer){ clearInterval(descTimer); descTimer = null; }
+  document.getElementById('descanso').classList.remove('on');
+  document.getElementById('guiado').classList.remove('on');
+  document.body.style.overflow = '';
+}
+
+function renderGuiado(){
+  const total = gLista.length;
+  if(gIdx >= total){ renderFimGuiado(); return; }
+  const i = gLista[gIdx];
+  const feito = execHoje[i.id];
+  const ult = ultimaCarga[i.exercicio_nome];
+
+  document.getElementById('gContador').textContent = (gIdx+1) + ' de ' + total;
+  document.getElementById('gFill').style.width = ((gIdx)/total*100) + '%';
+
+  const ex = exercicios_grupo(i);
+  document.getElementById('gCorpo').innerHTML =
+    '<div class="g-nome">' + esc(i.exercicio_nome) + '</div>' +
+    (ex ? '<div class="g-grupo">' + esc(ex) + '</div>' : '') +
+    '<div class="g-metas">' +
+      '<div class="g-meta"><div class="v">' + (i.series!=null?i.series:'—') + '</div><div class="l">séries</div></div>' +
+      '<div class="g-meta"><div class="v">' + esc(i.repeticoes!=null?i.repeticoes:'—') + '</div><div class="l">reps</div></div>' +
+      (i.carga_kg ? '<div class="g-meta"><div class="v">' + i.carga_kg + '</div><div class="l">kg alvo</div></div>' : '') +
+    '</div>' +
+    (i.video_url ? '<a class="g-video" href="' + esc(i.video_url) + '" target="_blank" rel="noopener">▶ ver como fazer</a>' : '') +
+    '<div class="g-reg">' +
+      '<label>Registre o que você fez' + (ult ? ' · última vez: ' + ult.carga_kg + ' kg' : '') + '</label>' +
+      '<div class="g-reg-linha">' +
+        '<input type="number" step="0.5" inputmode="decimal" id="gCarga" placeholder="Carga kg" value="' + (feito?feito.carga_kg||'':(ult?ult.carga_kg:(i.carga_kg||''))) + '">' +
+        '<input type="text" id="gReps" placeholder="Reps ex: 10,10,8" value="' + (feito?esc(feito.reps_feitas||''):'') + '">' +
+      '</div>' +
+    '</div>';
+
+  const ehUltimo = gIdx === total-1;
+  document.getElementById('gBottom').innerHTML =
+    (gIdx>0 ? '<button class="g-btn prev" onclick="gAnterior()">‹</button>' : '') +
+    '<button class="g-btn next" onclick="gProximo()">' + (ehUltimo ? 'Finalizar ✓' : 'Próximo ›') + '</button>';
+}
+
+// pega o grupo muscular do exercício a partir do banco carregado (se disponível)
+function exercicios_grupo(item){
+  return item._grupo || '';
+}
+
+async function gProximo(){
+  await salvarCargaGuiado();
+  const i = gLista[gIdx];
+  const ehUltimo = gIdx === gLista.length-1;
+  if(ehUltimo){ gIdx++; renderGuiado(); return; }
+  // dispara descanso se o exercício tem tempo definido
+  const seg = i.descanso_seg || 60;
+  gIdx++;
+  iniciarDescanso(seg);
+}
+
+function gAnterior(){
+  if(descTimer){ clearInterval(descTimer); descTimer=null; document.getElementById('descanso').classList.remove('on'); }
+  if(gIdx>0) gIdx--;
+  renderGuiado();
+}
+
+async function salvarCargaGuiado(){
+  const cEl = document.getElementById('gCarga'), rEl = document.getElementById('gReps');
+  if(!cEl) return;
+  const carga = parseFloat(cEl.value)||null;
+  const reps = rEl.value.trim()||null;
+  if(!carga && !reps) return;
+  const i = gLista[gIdx];
+  const reg = { ficha_id:ficha.id, cliente_id:ficha.cliente_id, treino_item_id:i.id,
+                exercicio_nome:i.exercicio_nome, data:hojeISO(), carga_kg:carga, reps_feitas:reps };
+  if(!navigator.onLine){ filaOffline('execucoes', reg); execHoje[i.id]=reg; return; }
+  const { data, error } = await db.from('execucoes')
+    .upsert(reg, { onConflict:'ficha_id,treino_item_id,data' }).select().limit(1);
+  if(!error && data){ execHoje[i.id]=data[0]; ultimaCarga[i.exercicio_nome]=data[0]; }
+}
+
+/* ---------- timer de descanso ---------- */
+function iniciarDescanso(seg){
+  descTotal = seg; descRestante = seg;
+  document.getElementById('descanso').classList.add('on');
+  atualizaDescanso();
+  if(descTimer) clearInterval(descTimer);
+  descTimer = setInterval(function(){
+    descRestante--;
+    if(descRestante <= 0){ fimDescanso(); }
+    else atualizaDescanso();
+  }, 1000);
+}
+function atualizaDescanso(){
+  document.getElementById('descNum').textContent = descRestante;
+  const frac = descRestante/descTotal;
+  document.getElementById('descArco').style.strokeDashoffset = (628*(1-frac)).toFixed(0);
+}
+function fimDescanso(){
+  clearInterval(descTimer); descTimer=null;
+  bipar(); vibrar();
+  document.getElementById('descanso').classList.remove('on');
+  renderGuiado();
+}
+function descansoPular(){ clearInterval(descTimer); descTimer=null; document.getElementById('descanso').classList.remove('on'); renderGuiado(); }
+function descansoMais(){ descRestante += 15; descTotal += 15; atualizaDescanso(); }
+
+// som curto sem arquivo externo (Web Audio)
+function bipar(){
+  try{
+    audioCtx = audioCtx || new (window.AudioContext||window.webkitAudioContext)();
+    if(audioCtx.state === 'suspended') audioCtx.resume();
+    [0, 0.18, 0.36].forEach(function(t){
+      const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+      o.type='sine'; o.frequency.value=880;
+      o.connect(g); g.connect(audioCtx.destination);
+      const ini = audioCtx.currentTime + t;
+      g.gain.setValueAtTime(0.001, ini);
+      g.gain.exponentialRampToValueAtTime(0.4, ini+0.02);
+      g.gain.exponentialRampToValueAtTime(0.001, ini+0.15);
+      o.start(ini); o.stop(ini+0.16);
+    });
+  }catch(e){ console.warn('audio:', e); }
+}
+function vibrar(){ if(navigator.vibrate) navigator.vibrate([200,100,200]); }
+
+function renderFimGuiado(){
+  document.getElementById('gFill').style.width = '100%';
+  document.getElementById('gContador').textContent = 'Concluído';
+  document.getElementById('gCorpo').innerHTML =
+    '<div class="g-fim"><div class="emoji">🎉</div>' +
+    '<h2>Treino ' + gDia + ' concluído!</h2>' +
+    '<p>Mandou bem. Bora marcar o check-in de hoje.</p></div>';
+  document.getElementById('gBottom').innerHTML =
+    '<button class="g-btn next" onclick="finalizarGuiado()">Marcar treino e sair</button>';
+}
+
+async function finalizarGuiado(){
+  await upsertCheckin({ treinou:true, qual_treino: gDia });
+  fecharGuiado();
+  renderHoje(); renderCheckin();
+  irPara('Checkin');
 }
 
 /* ================= MODO OFFLINE ================= */
