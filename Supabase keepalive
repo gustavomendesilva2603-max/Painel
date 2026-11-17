@@ -1,0 +1,15 @@
+on:
+  schedule:
+    - cron: "17 11 * * *"   # todo dia, 08:17 de Brasília
+  workflow_dispatch:         # botão pra rodar na mão
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Registrar o dia no Supabase
+        run: |
+          curl -fsS -X POST "${{ secrets.SUPABASE_URL }}/rest/v1/rpc/ping_keepalive" \
+            -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d '{}'
